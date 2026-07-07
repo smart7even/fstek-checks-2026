@@ -1,16 +1,22 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # check_rsb5.sh - РСБ.5 Реагирование на сбои регистрации
 
 WITH_ENHANCEMENTS=false
-[[ "$1" == "-e" || "$1" == "--with-enhancements" ]] && WITH_ENHANCEMENTS=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENHANCEMENTS=true ;;
+    esac
+done
 
 FAIL_COUNT=0
 SKIP_COUNT=0
 
-# Унифицированные функции вывода (БЕЗ ЦВЕТОВ)
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
+# Унифицированные функции вывода
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 AUDIT_CONF="/etc/audit/auditd.conf"
 
@@ -40,7 +46,7 @@ else
     check_fail "РСБ.5.2" "Файл journald.conf не найден"
 fi
 
-if $WITH_ENHANCEMENTS; then
+if fstek_enhancement_enabled "РСБ.5" "1"; then
     # РСБ.5.3 (Усиление 2) – Остановка системы (Fail-secure)
     if [ -f "$AUDIT_CONF" ]; then
         SPACE_ACTION=$(grep -E "^admin_space_left_action" "$AUDIT_CONF" | awk -F'=' '{print $2}' | tr -d ' ')
@@ -54,8 +60,7 @@ if $WITH_ENHANCEMENTS; then
     fi
 else
     # Унифицированный вывод для отключенных усилений
-    echo "[РСБ.5.3] SKIP – проверка усилений отключена"
-    ((SKIP_COUNT++))
+    skip_enhancement "РСБ.5.3"
 fi
 
 # Унифицированная итоговая строка

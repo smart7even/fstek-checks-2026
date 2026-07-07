@@ -1,17 +1,23 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # check_zsv8.sh - Идентификация и аутентификация в среде виртуализации (ЗСВ.8)
 # Соответствие разделу 4.4 (ЗСВ.8) Методического документа ФСТЭК России от 12.04.2026
 
 WITH_ENH=false
-[[ "$1" == "-e" || "$1" == "--with-enhancements" ]] && WITH_ENH=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENH=true ;;
+    esac
+done
 
 FAIL_COUNT=0
 SKIP_COUNT=0
 
-# Унифицированные функции вывода (БЕЗ ЦВЕТОВ)
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
+# Унифицированные функции вывода
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 # --- ПРОВЕРКА НАЛИЧИЯ СРЕДСТВ ВИРТУАЛИЗАЦИИ ---
 # Если libvirt/virsh не обнаружены, проверка ЗСВ.1 пропускается
@@ -48,7 +54,7 @@ else
 fi
 
 # --- ТРЕБОВАНИЯ К УСИЛЕНИЮ ---
-if $WITH_ENH; then
+if fstek_enhancement_enabled "ЗСВ.8" "1"; then
     # ЗСВ.8.4 (Усиление 1) – Идентификация объектов виртуализации (UUID)
     if command -v virsh &>/dev/null; then
         VM_WITH_UUID=0
@@ -72,8 +78,7 @@ if $WITH_ENH; then
     fi
 else
     # Унифицированный вывод для отключенных усилений
-    echo "[ЗСВ.8.4] SKIP – проверка усилений отключена"
-    ((SKIP_COUNT++))
+    skip_enhancement "ЗСВ.8.4"
 fi
 
 # Унифицированная итоговая строка

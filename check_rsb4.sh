@@ -1,16 +1,22 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # check_rsb4.sh - РСБ.4 Сбор, хранение и защита логов
 
 WITH_ENHANCEMENTS=false
-[[ "$1" == "-e" || "$1" == "--with-enhancements" ]] && WITH_ENHANCEMENTS=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENHANCEMENTS=true ;;
+    esac
+done
 
 FAIL_COUNT=0
 SKIP_COUNT=0
 
-# Унифицированные функции вывода (БЕЗ ЦВЕТОВ)
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
+# Унифицированные функции вывода
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 # РСБ.4.1 – Защита от НСД (Права и Владелец)
 SECURE_LOG="/var/log/secure"
@@ -47,7 +53,7 @@ else
     check_fail "РСБ.4.2" "Директория /etc/logrotate.d не найдена"
 fi
 
-if $WITH_ENHANCEMENTS; then
+if fstek_enhancement_enabled "РСБ.4" "1"; then
     # РСБ.4.3 (Усиление 4) – Резервное копирование
     if grep -rqE "/var/log|audit" /etc/cron.* /var/spool/cron/ 2>/dev/null; then
         check_pass "РСБ.4.3" "Обнаружены задачи cron для резервного копирования логов"
@@ -63,8 +69,7 @@ if $WITH_ENHANCEMENTS; then
     fi
 else
     # Унифицированный вывод для отключенных усилений
-    echo "[РСБ.4.3-4] SKIP – проверка усилений отключена"
-    ((SKIP_COUNT++))
+    skip_enhancement "РСБ.4.3-4"
 fi
 
 # Унифицированная итоговая строка

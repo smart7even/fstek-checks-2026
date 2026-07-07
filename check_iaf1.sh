@@ -1,8 +1,14 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # Модуль проверки ИАФ.1 (Универсальный для Astra/ALT/RedOS)
 
 WITH_ENHANCEMENTS=false
-[[ "$1" == "--with-enhancements" || "$1" == "-e" ]] && WITH_ENHANCEMENTS=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENHANCEMENTS=true ;;
+    esac
+done
 
 # Функция определения ОС
 detect_os() {
@@ -21,9 +27,9 @@ detect_os() {
 }
 detect_os
 
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 FAIL_COUNT=0; SKIP_COUNT=0
 
@@ -68,7 +74,7 @@ fi
 check_skip "ИАФ.1.4" "Процедура первичной идентификации личности (требует ручной проверки регламента)"
 
 # ИАФ.1.5 – Усиление (Централизация)
-if $WITH_ENHANCEMENTS; then
+if fstek_enhancement_enabled "ИАФ.1" "1"; then
     if systemctl is-active --quiet sssd 2>/dev/null && grep -q "domains =" /etc/sssd/sssd.conf 2>/dev/null; then
         check_pass "ИАФ.1.5" "Обнаружена централизация через SSSD (домен настроен)"
     elif [ "$OS_TYPE" == "astra17" ] || [ "$OS_TYPE" == "astra18" ]; then
@@ -81,7 +87,7 @@ if $WITH_ENHANCEMENTS; then
         check_fail "ИАФ.1.5" "Централизованное управление (SSSD/FreeIPA/AD) не настроено"
     fi
 else
-    echo "[ИАФ.1.5] SKIP – проверка усилений отключена"
+    skip_enhancement "ИАФ.1.5"
 fi
 
 echo "=== ИТОГ МОДУЛЯ ИАФ.1: FAIL=$FAIL_COUNT, SKIP=$SKIP_COUNT ==="

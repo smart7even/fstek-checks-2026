@@ -3,13 +3,127 @@
 # Скрипты только читают конфигурацию и состояние ОС.
 
 WITH_ENHANCEMENTS=false
-for arg in "$@"; do
-    [[ "$arg" == "--with-enhancements" || "$arg" == "-e" ]] && WITH_ENHANCEMENTS=true
-done
+FSTEK_SECURITY_CLASS=""
+
+fstek_normalize_security_class() {
+    case "$1" in
+        k1|K1|к1|К1) printf 'K1' ;;
+        k2|K2|к2|К2) printf 'K2' ;;
+        k3|K3|к3|К3) printf 'K3' ;;
+        *) return 1 ;;
+    esac
+}
+
+fstek_set_security_class() {
+    local class
+    class="$(fstek_normalize_security_class "$1")" || {
+        echo "Ошибка: неизвестный класс защищенности '$1'. Используйте K1, K2 или K3." >&2
+        exit 2
+    }
+    FSTEK_SECURITY_CLASS="$class"
+    WITH_ENHANCEMENTS=true
+}
+
+fstek_parse_cli() {
+    local arg
+    while [ "$#" -gt 0 ]; do
+        arg="$1"
+        case "$arg" in
+            --with-enhancements|-e)
+                WITH_ENHANCEMENTS=true
+                ;;
+            --class|--security-class|-c)
+                shift
+                [ "$#" -gt 0 ] || {
+                    echo "Ошибка: для $arg нужно указать K1, K2 или K3." >&2
+                    exit 2
+                }
+                fstek_set_security_class "$1"
+                ;;
+            --class=*|--security-class=*)
+                fstek_set_security_class "${arg#*=}"
+                ;;
+            --k1|--K1|--к1|--К1)
+                fstek_set_security_class "K1"
+                ;;
+            --k2|--K2|--к2|--К2)
+                fstek_set_security_class "K2"
+                ;;
+            --k3|--K3|--к3|--К3)
+                fstek_set_security_class "K3"
+                ;;
+        esac
+        shift
+    done
+}
+
+fstek_parse_cli "$@"
 
 FAIL_COUNT=0
 SKIP_COUNT=0
 PASS_COUNT=0
+
+fstek_required_enhancements() {
+    case "$1:$2" in
+        ИАФ.1:K2|ИАФ.1:K1) printf '1' ;;
+        ИАФ.3:K1) printf '1' ;;
+        УПД.1:K2|УПД.1:K1) printf '1 2' ;;
+        УПД.2:K2) printf '1' ;;
+        УПД.2:K1) printf '1 2' ;;
+        УПД.3:K2) printf '1' ;;
+        УПД.3:K1) printf '1 2' ;;
+        УПД.4:K2|УПД.4:K1) printf '1 2' ;;
+        УПД.7:K1) printf '1a 1а' ;;
+        РСБ.1:K3) printf '1' ;;
+        РСБ.1:K2) printf '1 2' ;;
+        РСБ.1:K1) printf '1 2 3' ;;
+        ЗСВ.1:K2) printf '1' ;;
+        ЗСВ.1:K1) printf '1 2' ;;
+        ЗСВ.2:K2|ЗСВ.2:K1) printf '1 2' ;;
+        ЗСВ.6:K1) printf '1' ;;
+        ЗКО.1:K2) printf '1 2' ;;
+        ЗКО.1:K1) printf '1 2 3 4 5 6' ;;
+        ЗКО.5:K2|ЗКО.5:K1) printf '1' ;;
+        ЗКО.8:K2|ЗКО.8:K1) printf '1 2' ;;
+        ЗЭП.4:K2|ЗЭП.4:K1) printf '1' ;;
+        ЗВТ.2:K2|ЗВТ.2:K1) printf '1' ;;
+        ЗВТ.3:K1) printf '1' ;;
+        ЗПИ.1:K2|ЗПИ.1:K1) printf '1' ;;
+        ЗПИ.3:K1) printf '1' ;;
+        ЗКУ.3:K2|ЗКУ.3:K1) printf '1' ;;
+        ЗКУ.6:K2|ЗКУ.6:K1) printf '1' ;;
+        ЗМУ.1:K2|ЗМУ.1:K1) printf '1' ;;
+        ЗМУ.3:K2) printf '1' ;;
+        ЗМУ.3:K1) printf '1 2' ;;
+        ЗМУ.4:K1) printf '1' ;;
+        ЗМУ.9:K2|ЗМУ.9:K1) printf '1' ;;
+        ЗИВ.3:K2|ЗИВ.3:K1) printf '1' ;;
+        ЗИВ.5:K2|ЗИВ.5:K1) printf '1' ;;
+        ЗБД.1:K1) printf '1' ;;
+        ЗБД.6:K2|ЗБД.6:K1) printf '1' ;;
+        СОВ.1:K2|СОВ.1:K1) printf '1' ;;
+        МСЭ.1:K1) printf '1' ;;
+        ЗОО.2:K1) printf '1' ;;
+        *) printf '' ;;
+    esac
+}
+
+fstek_enhancement_enabled() {
+    local measure="$1" required id want
+    shift
+    $WITH_ENHANCEMENTS || return 1
+    [ -n "$FSTEK_SECURITY_CLASS" ] || return 0
+    required="$(fstek_required_enhancements "$measure" "$FSTEK_SECURITY_CLASS")"
+    [ -n "$required" ] || return 1
+    for want in "$@"; do
+        [ "$want" = "1а" ] && want="1a"
+        for id in $required; do
+            [ "$id" = "1а" ] && id="1a"
+            [ "$id" = "$want" ] && return 0
+        done
+    done
+    return 1
+}
 
 fstek_color_enabled() {
     case "${FSTEK_COLOR:-auto}" in
@@ -66,7 +180,13 @@ check_pass() { fstek_status_line "$1" "PASS" "$2"; ((PASS_COUNT++)); return 0; }
 check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); return 0; }
 check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕВОЗМОЖНО ПРОВЕРИТЬ АВТОМАТИЧЕСКИ)"; ((SKIP_COUNT++)); return 0; }
 check_na() { fstek_status_line "$1" "SKIP" "$2 (НЕПРИМЕНИМО)"; ((SKIP_COUNT++)); return 0; }
-skip_enhancement() { fstek_status_line "$1" "SKIP" "проверка усилений отключена"; ((SKIP_COUNT++)); return 0; }
+skip_enhancement() {
+    local reason="проверка усилений отключена"
+    [ -n "$FSTEK_SECURITY_CLASS" ] && reason="усиление не требуется для класса $FSTEK_SECURITY_CLASS"
+    fstek_status_line "$1" "SKIP" "$reason"
+    ((SKIP_COUNT++))
+    return 0
+}
 
 init_measure() {
     MEASURE_CODE="$1"
@@ -590,7 +710,7 @@ check_zvt1() {
     check_tls_config "$MEASURE_CODE.1"
     check_web_auth_or_acl "$MEASURE_CODE.2"
     check_firewall_active "$MEASURE_CODE.3"
-    if $WITH_ENHANCEMENTS; then
+    if fstek_enhancement_enabled "$MEASURE_CODE" "1" "2" "3" "4"; then
         check_no_cache_headers "$MEASURE_CODE.4"
         check_skip "$MEASURE_CODE.5" "Автозаполнение HTML-форм достоверно проверяется только по исходному коду веб-приложения"
         check_web_security_headers "$MEASURE_CODE.6"
@@ -607,7 +727,7 @@ check_zvt2() {
     check_rate_limit "$MEASURE_CODE.3"
     check_skip "$MEASURE_CODE.4" "Проверка прав при каждом запросе определяется логикой приложения и требует анализа кода/настроек приложения"
     check_skip "$MEASURE_CODE.5" "Исключение client-side-only аутентификации требует анализа приложения"
-    if $WITH_ENHANCEMENTS; then check_skip "$MEASURE_CODE.6" "MFA привилегированных веб-пользователей проверяется в IdP/приложении"; else skip_enhancement "$MEASURE_CODE.6"; fi
+    if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_skip "$MEASURE_CODE.6" "MFA привилегированных веб-пользователей проверяется в IdP/приложении"; else skip_enhancement "$MEASURE_CODE.6"; fi
 }
 
 check_zvt3() {
@@ -615,11 +735,15 @@ check_zvt3() {
     check_waf "$MEASURE_CODE.1"
     check_rate_limit "$MEASURE_CODE.2"
     check_skip "$MEASURE_CODE.3" "Полнота сигнатур SQL/XSS/команд и проверка чувствительных данных в запросах требует анализа WAF-политик"
-    if $WITH_ENHANCEMENTS; then
+    if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then
         check_waf "$MEASURE_CODE.4"
+    else
+        skip_enhancement "$MEASURE_CODE.4"
+    fi
+    if fstek_enhancement_enabled "$MEASURE_CODE" "2"; then
         check_api_schema_validation "$MEASURE_CODE.5"
     else
-        skip_enhancement "$MEASURE_CODE.4"; skip_enhancement "$MEASURE_CODE.5"
+        skip_enhancement "$MEASURE_CODE.5"
     fi
 }
 
@@ -655,7 +779,7 @@ check_zpi2() {
     check_web_auth_or_acl "$MEASURE_CODE.1"
     check_rate_limit "$MEASURE_CODE.2"
     check_skip "$MEASURE_CODE.3" "Разграничение прав приложений и пользователей требует проверки IdP/API-приложения"
-    if $WITH_ENHANCEMENTS; then check_skip "$MEASURE_CODE.4" "MFA/API access policy проверяется в IdP/API-шлюзе"; else skip_enhancement "$MEASURE_CODE.4"; fi
+    if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_skip "$MEASURE_CODE.4" "MFA/API access policy проверяется в IdP/API-шлюзе"; else skip_enhancement "$MEASURE_CODE.4"; fi
 }
 
 check_zpi3() {
@@ -663,7 +787,7 @@ check_zpi3() {
     check_openapi_spec "$MEASURE_CODE.1"
     check_api_schema_validation "$MEASURE_CODE.2"
     check_waf "$MEASURE_CODE.3"
-    if $WITH_ENHANCEMENTS; then check_rate_limit "$MEASURE_CODE.4"; else skip_enhancement "$MEASURE_CODE.4"; fi
+    if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_rate_limit "$MEASURE_CODE.4"; else skip_enhancement "$MEASURE_CODE.4"; fi
 }
 
 check_zku1() { is_linux || { check_na "$MEASURE_CODE" "Проверка рассчитана на Linux"; return; }; check_pam_auth "$MEASURE_CODE.1"; check_ssh_hardening "$MEASURE_CODE.2"; check_sudo_restricted "$MEASURE_CODE.3"; }
@@ -713,8 +837,8 @@ check_avz2() { has_mail_stack || { check_na "$MEASURE_CODE" "Почтовый с
 check_avz3() { check_av_installed "$MEASURE_CODE.1"; if service_active squid c-icap havp privoxy || grep_any "icap|clamav|virus|av_" /etc/squid /etc/c-icap /etc/nginx /etc/haproxy 2>/dev/null; then check_pass "$MEASURE_CODE.2" "Обнаружена антивирусная проверка сетевого трафика/ICAP"; else check_fail "$MEASURE_CODE.2" "Не обнаружена антивирусная проверка сетевого трафика"; fi; }
 check_avz4() { if service_active cuckoo cape sandbox detonator || file_any /opt/cuckoo /opt/cape /etc/cuckoo; then check_pass "$MEASURE_CODE.1" "Обнаружена среда предварительного анализа файлов"; else check_skip "$MEASURE_CODE.1" "Замкнутая среда предварительного анализа файлов обычно реализуется отдельной песочницей/процессом"; fi; }
 
-check_sov1() { check_ids_installed "$MEASURE_CODE.1"; check_ids_rules_logs "$MEASURE_CODE.2"; check_siem_forwarding "$MEASURE_CODE.3"; if $WITH_ENHANCEMENTS; then check_fail2ban_or_reaction "$MEASURE_CODE.4"; else skip_enhancement "$MEASURE_CODE.4"; fi; }
-check_sov2() { check_ids_installed "$MEASURE_CODE.1"; check_auditd "$MEASURE_CODE.2"; check_siem_forwarding "$MEASURE_CODE.3"; if $WITH_ENHANCEMENTS; then check_fail2ban_or_reaction "$MEASURE_CODE.4"; else skip_enhancement "$MEASURE_CODE.4"; fi; }
+check_sov1() { check_ids_installed "$MEASURE_CODE.1"; check_ids_rules_logs "$MEASURE_CODE.2"; check_siem_forwarding "$MEASURE_CODE.3"; if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_fail2ban_or_reaction "$MEASURE_CODE.4"; else skip_enhancement "$MEASURE_CODE.4"; fi; }
+check_sov2() { check_ids_installed "$MEASURE_CODE.1"; check_auditd "$MEASURE_CODE.2"; check_siem_forwarding "$MEASURE_CODE.3"; if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_fail2ban_or_reaction "$MEASURE_CODE.4"; else skip_enhancement "$MEASURE_CODE.4"; fi; }
 
 check_mse1() { check_network_segmentation "$MEASURE_CODE.1"; check_firewall_active "$MEASURE_CODE.2"; check_firewall_logging "$MEASURE_CODE.3"; }
 check_mse2() { check_dmz "$MEASURE_CODE.1"; check_firewall_active "$MEASURE_CODE.2"; check_network_segmentation "$MEASURE_CODE.3"; }
@@ -725,11 +849,11 @@ check_mse5() { check_honeypot "$MEASURE_CODE.1"; check_skip "$MEASURE_CODE.2" "�
 check_zoo1() { check_syn_cookies "$MEASURE_CODE.1"; check_firewall_active "$MEASURE_CODE.2"; check_rate_limit "$MEASURE_CODE.3"; }
 check_zoo2() { check_firewall_active "$MEASURE_CODE.1"; check_rate_limit "$MEASURE_CODE.2"; check_waf "$MEASURE_CODE.3"; }
 check_zoo3() { check_monitoring_stack "$MEASURE_CODE.1"; check_open_listeners "$MEASURE_CODE.2"; check_siem_forwarding "$MEASURE_CODE.3"; }
-check_zoo4() { check_load_balancing "$MEASURE_CODE.1"; check_skip "$MEASURE_CODE.2" "Независимость физических каналов и провайдеров проверяется по сетевой документации"; if $WITH_ENHANCEMENTS; then check_load_balancing "$MEASURE_CODE.3"; else skip_enhancement "$MEASURE_CODE.3"; fi; }
+check_zoo4() { check_load_balancing "$MEASURE_CODE.1"; check_skip "$MEASURE_CODE.2" "Независимость физических каналов и провайдеров проверяется по сетевой документации"; if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_load_balancing "$MEASURE_CODE.3"; else skip_enhancement "$MEASURE_CODE.3"; fi; }
 check_zoo5() { check_rate_limit "$MEASURE_CODE.1"; check_dns_rate_limit "$MEASURE_CODE.2"; check_monitoring_stack "$MEASURE_CODE.3"; }
-check_zoo6() { check_skip "$MEASURE_CODE.1" "Двукратный резерв полосы и ресурсов определяется по методике оператора и не выводится достоверно из ОС"; if $WITH_ENHANCEMENTS; then if grep_any "xdp|dpdk|pf_ring|af_xdp" /etc /proc/cmdline 2>/dev/null; then check_pass "$MEASURE_CODE.2" "Обнаружены признаки высокопроизводительной обработки пакетов"; else check_fail "$MEASURE_CODE.2" "Не обнаружены признаки XDP/DPDK/PF_RING"; fi; else skip_enhancement "$MEASURE_CODE.2"; fi; }
+check_zoo6() { check_skip "$MEASURE_CODE.1" "Двукратный резерв полосы и ресурсов определяется по методике оператора и не выводится достоверно из ОС"; if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then if grep_any "xdp|dpdk|pf_ring|af_xdp" /etc /proc/cmdline 2>/dev/null; then check_pass "$MEASURE_CODE.2" "Обнаружены признаки высокопроизводительной обработки пакетов"; else check_fail "$MEASURE_CODE.2" "Не обнаружены признаки XDP/DPDK/PF_RING"; fi; else skip_enhancement "$MEASURE_CODE.2"; fi; }
 
 check_zks1() { check_vpn_or_crypto "$MEASURE_CODE.1"; check_tls_config "$MEASURE_CODE.2"; check_strong_tls "$MEASURE_CODE.3"; check_firewall_active "$MEASURE_CODE.4"; }
 check_zks2() { check_firewall_active "$MEASURE_CODE.1"; check_firewall_logging "$MEASURE_CODE.2"; check_skip "$MEASURE_CODE.3" "Перечень атрибутов безопасности субъектов задается оператором и проверяется по правилам/документации"; }
-check_zks3() { check_egress_control "$MEASURE_CODE.1"; check_firewall_logging "$MEASURE_CODE.2"; if $WITH_ENHANCEMENTS; then check_proxy_categories "$MEASURE_CODE.3"; else skip_enhancement "$MEASURE_CODE.3"; fi; }
-check_zks4() { check_dlp "$MEASURE_CODE.1"; check_egress_control "$MEASURE_CODE.2"; if $WITH_ENHANCEMENTS; then check_dlp "$MEASURE_CODE.3"; else skip_enhancement "$MEASURE_CODE.3"; fi; }
+check_zks3() { check_egress_control "$MEASURE_CODE.1"; check_firewall_logging "$MEASURE_CODE.2"; if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_proxy_categories "$MEASURE_CODE.3"; else skip_enhancement "$MEASURE_CODE.3"; fi; }
+check_zks4() { check_dlp "$MEASURE_CODE.1"; check_egress_control "$MEASURE_CODE.2"; if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_dlp "$MEASURE_CODE.3"; else skip_enhancement "$MEASURE_CODE.3"; fi; }

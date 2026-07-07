@@ -1,7 +1,13 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # Модуль проверки УПД.1 - Реализация модели управления доступом
 WITH_ENHANCEMENTS=false
-[[ "$1" == "--with-enhancements" || "$1" == "-e" ]] && WITH_ENHANCEMENTS=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENHANCEMENTS=true ;;
+    esac
+done
 
 # Определение ОС
 detect_os() {
@@ -20,8 +26,8 @@ detect_os() {
 }
 detect_os
 
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
 FAIL_COUNT=0
 
 # УПД.1.1 – Наличие групп (ролевая модель)
@@ -85,7 +91,7 @@ else
 fi
 
 # УПД.1.5 – Усиление: Централизованное управление
-if $WITH_ENHANCEMENTS; then
+if fstek_enhancement_enabled "УПД.1" "1" "2"; then
     if systemctl is-active --quiet sssd 2>/dev/null; then
         if grep -qE "ldap_group|ad_group|ipa_group" /etc/sssd/sssd.conf 2>/dev/null; then
             check_pass "УПД.1.5" "SSSD настроен с управлением группами (централизованная модель)"
@@ -96,7 +102,7 @@ if $WITH_ENHANCEMENTS; then
         check_fail "УПД.1.5" "Централизованное управление доступом (SSSD/LDAP) не обнаружено"
     fi
 else
-    echo "[УПД.1.5] SKIP – проверка усилений отключена"
+    skip_enhancement "УПД.1.5"
 fi
 
 echo "=== ИТОГ МОДУЛЯ УПД.1: FAIL=$FAIL_COUNT ==="

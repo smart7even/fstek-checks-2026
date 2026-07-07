@@ -1,11 +1,17 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # Модуль проверки УПД.6 - Оповещение о предыдущем входе
 WITH_ENHANCEMENTS=false
-[[ "$1" == "--with-enhancements" || "$1" == "-e" ]] && WITH_ENHANCEMENTS=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENHANCEMENTS=true ;;
+    esac
+done
 
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2"; ((SKIP_COUNT++)); }
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2"; ((SKIP_COUNT++)); }
 FAIL_COUNT=0
 SKIP_COUNT=0
 
@@ -47,7 +53,7 @@ else
 fi
 
 # УПД.6.4 – Усиление: Оповещение о неуспешных попытках
-if $WITH_ENHANCEMENTS; then
+if fstek_enhancement_enabled "УПД.6" "1"; then
     FAIL_NOTIFY=false
     for pfile in /etc/pam.d/system-auth /etc/pam.d/common-auth; do
         if [ -f "$pfile" ] && grep -qE "pam_faillock|pam_tally2" "$pfile"; then
@@ -63,11 +69,11 @@ if $WITH_ENHANCEMENTS; then
         check_fail "УПД.6.4" "Оповещение о неуспешных попытках входа не настроено"
     fi
 else
-    echo "[УПД.6.4] SKIP – проверка усилений отключена"
+    skip_enhancement "УПД.6.4"
 fi
 
 # УПД.6.5 – Усиление (п.6): Оповещение по альтернативным каналам связи (Email/SMS/Push)
-if $WITH_ENHANCEMENTS; then
+if fstek_enhancement_enabled "УПД.6" "1"; then
     # Локальная проверка ОС не может гарантировать отправку писем/SMS.
     # Это настраивается на уровне SIEM, IDM (FreeIPA/AD) или почтового реле.
     # Мы проверяем косвенный признак: настроен ли SSSD на чтение email-атрибутов из каталога.
@@ -83,7 +89,7 @@ if $WITH_ENHANCEMENTS; then
         check_skip "УПД.6.5" "Оповещение по альтернативным каналам (Email/SMS) требует ручной проверки настроек SIEM/почтового шлюза"
     fi
 else
-    echo "[УПД.6.5] SKIP – проверка усилений отключена"
+    skip_enhancement "УПД.6.5"
 fi
 
 echo "=== ИТОГ МОДУЛЯ УПД.6: FAIL=$FAIL_COUNT, SKIP=$SKIP_COUNT ==="

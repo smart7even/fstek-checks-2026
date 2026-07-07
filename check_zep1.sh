@@ -1,17 +1,23 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # check_zep1.sh - Защита ящиков и сообщений электронной почты (ЗЭП.1)
 # Соответствие разделу 4.6 (ЗЭП.1) Методического документа ФСТЭК России от 12.04.2026
 
 WITH_ENHANCEMENTS=false
-[[ "$1" == "--with-enhancements" || "$1" == "-e" ]] && WITH_ENHANCEMENTS=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENHANCEMENTS=true ;;
+    esac
+done
 
 FAIL_COUNT=0
 SKIP_COUNT=0
 
-# Унифицированные функции вывода (БЕЗ ЦВЕТОВ)
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
+# Унифицированные функции вывода
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 # --- ПРОВЕРКА НАЛИЧИЯ ПОЧТОВОГО СЕРВЕРА ---
 # Если почтовый сервер не установлен, проверка ЗЭП.1 пропускается
@@ -34,7 +40,7 @@ fi
 check_skip "ЗЭП.1.2" "Периодический анализ (аудит) ящиков на наличие подлежащих удалению"
 
 # --- ТРЕБОВАНИЯ К УСИЛЕНИЮ ---
-if $WITH_ENHANCEMENTS; then
+if fstek_enhancement_enabled "ЗЭП.1" "1"; then
     # ЗЭП.1.3 (Усиление 1) - Автоблокирование неактивных ящиков
     if grep -rq "plugin.*expire" /etc/dovecot/ 2>/dev/null || \
        crontab -l 2>/dev/null | grep -qiE "inactive.*mail|disable.*user|doveadm.*kick" 2>/dev/null; then
@@ -52,8 +58,7 @@ if $WITH_ENHANCEMENTS; then
     fi
 else
     # Унифицированный вывод для отключенных усилений
-    echo "[ЗЭП.1.3-4] SKIP – проверка усилений отключена"
-    ((SKIP_COUNT+=2))
+    skip_enhancement "ЗЭП.1.3-4"
 fi
 
 # Унифицированная итоговая строка

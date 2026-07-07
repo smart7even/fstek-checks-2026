@@ -1,17 +1,23 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # check_zko5.sh - Изоляция контейнеров в контейнерных средах (ЗКО.5)
 # Соответствие разделу 4.5 (ЗКО.5) Методического документа ФСТЭК России от 12.04.2026
 
 WITH_ENH=false
-[[ "$1" == "-e" || "$1" == "--with-enhancements" ]] && WITH_ENH=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENH=true ;;
+    esac
+done
 
 FAIL_COUNT=0
 SKIP_COUNT=0
 
-# Унифицированные функции вывода (БЕЗ ЦВЕТОВ)
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2"; ((SKIP_COUNT++)); }
+# Унифицированные функции вывода
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2"; ((SKIP_COUNT++)); }
 
 ENGINE="none"
 if command -v docker >/dev/null 2>&1 && systemctl is-active --quiet docker 2>/dev/null; then ENGINE="docker";
@@ -137,7 +143,7 @@ else
 fi
 
 # --- ТРЕБОВАНИЯ К УСИЛЕНИЮ ---
-if $WITH_ENH; then
+if fstek_enhancement_enabled "ЗКО.5" "3"; then
     # ЗКО.5.4 (Усиление 3) - User Namespace Remapping
     if [ "$ENGINE" == "docker" ]; then
         if grep -qE '"userns-remap"' /etc/docker/daemon.json 2>/dev/null; then
@@ -152,7 +158,11 @@ if $WITH_ENH; then
             check_fail "ЗКО.5.4" "Podman: User namespaces не используются (запуск от root)"
         fi
     fi
+else
+    skip_enhancement "ЗКО.5.4"
+fi
 
+if fstek_enhancement_enabled "ЗКО.5" "1"; then
     # ЗКО.5.5 (Усиление 1) - Изоляция всех 6 пространств имён (namespaces)
     NAMESPACE_ISOLATED=0
     NAMESPACE_TOTAL=0
@@ -197,9 +207,7 @@ if $WITH_ENH; then
         check_fail "ЗКО.5.5" "Только $NAMESPACE_ISOLATED из $NAMESPACE_TOTAL контейнеров имеют полную изоляцию namespaces"
     fi
 else
-    # Унифицированный вывод для отключенных усилений
-    echo "[ЗКО.5.4-5] SKIP – проверка усилений отключена"
-    ((SKIP_COUNT++))
+    skip_enhancement "ЗКО.5.5"
 fi
 
 # Унифицированная итоговая строка

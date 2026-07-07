@@ -3,6 +3,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 2
+. "$SCRIPT_DIR/lib_fstek.sh"
 
 ENHANCE_FLAG=""
 if [[ "$1" == "--with-enhancements" || "$1" == "-e" ]]; then
@@ -11,6 +12,8 @@ if [[ "$1" == "--with-enhancements" || "$1" == "-e" ]]; then
 else
     echo ">>> Режим проверки только базовых требований."
 fi
+detect_os
+fstek_print_os_info
 echo "========================================================="
 
 TOTAL_PASS=0
@@ -27,9 +30,9 @@ for script in check_*.sh; do
 
     MEASURE_CODE=$(echo "$script" | sed -E 's/check_([a-z]+)([0-9]+)\.sh/\U\1.\2/')
     echo -e "\n>>> Запуск модуля: $MEASURE_CODE ($script)"
-    OUTPUT=$(bash "$script" $ENHANCE_FLAG)
+    OUTPUT=$(FSTEK_COLOR=never bash "$script" $ENHANCE_FLAG)
     EXIT_CODE=$?
-    echo "$OUTPUT"
+    printf '%s\n' "$OUTPUT" | fstek_colorize_statuses
 
     P_COUNT=$(echo "$OUTPUT" | grep -c "PASS –" || true)
     F_COUNT=$(echo "$OUTPUT" | grep -c "FAIL –" || true)
@@ -75,7 +78,7 @@ echo "Процент невыполненных проверок: $FAIL_PERCENT%
 echo "Количество неприменимых/неавтоматизируемых параметров: $TOTAL_SKIP"
 
 echo -e "\nСводная таблица по мерам:"
-echo -e "$MEASURE_SUMMARY"
+printf '%b' "$MEASURE_SUMMARY" | fstek_colorize_statuses
 
 if [ -n "$FAILED_MEASURES" ]; then
     echo "Меры, которые не были исполнены:"
@@ -84,12 +87,12 @@ fi
 
 if [ -n "$FAIL_LIST" ]; then
     echo -e "\nКонкретные параметры, которые не были исполнены:"
-    echo "$FAIL_LIST" | sed '/^$/d' | sed 's/^/- /'
+    echo "$FAIL_LIST" | sed '/^$/d' | sed 's/^/- /' | fstek_colorize_statuses
 fi
 
 if [ -n "$SKIP_LIST" ]; then
     echo -e "\nПараметры, которые невозможно проверить автоматически или неприменимы:"
-    echo "$SKIP_LIST" | sed '/^$/d' | sed 's/^/- /'
+    echo "$SKIP_LIST" | sed '/^$/d' | sed 's/^/- /' | fstek_colorize_statuses
 fi
 
 [ "$TOTAL_FAIL" -eq 0 ] && exit 0 || exit 1

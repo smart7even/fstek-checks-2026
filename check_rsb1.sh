@@ -9,8 +9,12 @@ check_pass() { echo "[$1] PASS – $2"; }
 check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
 check_skip() { echo "[$1] SKIP – $2"; ((SKIP_COUNT++)); }
 
-OS="generic"; [ -f /etc/os-release ] && . /etc/os-release
-[[ "$NAME" == *"Astra"* ]] && OS="astra"
+OS="generic"
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS_MATCH="$(printf '%s' "${ID:-} ${ID_LIKE:-} ${NAME:-} ${PRETTY_NAME:-}" | tr '[:upper:]' '[:lower:]')"
+    [[ "$OS_MATCH" == *"astra"* || "$OS_MATCH" == *"alse"* ]] && OS="astra"
+fi
 
 # РСБ.1.1 – Служба аудита
 if [ "$OS" == "astra" ]; then

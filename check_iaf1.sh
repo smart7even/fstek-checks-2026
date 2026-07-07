@@ -8,14 +8,15 @@ WITH_ENHANCEMENTS=false
 detect_os() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
-        OS_NAME=$NAME; OS_VER=$VERSION_ID
-    else OS_NAME="Unknown"; fi
-    if [[ "$OS_NAME" == *"Astra"* ]]; then
-        if [[ "$OS_VER" == *"1.7"* ]]; then OS_TYPE="astra17";
-        elif [[ "$OS_VER" == *"1.8"* ]]; then OS_TYPE="astra18";
+        OS_NAME="${NAME:-Unknown}"; OS_VER="${VERSION_ID:-}"
+        OS_MATCH="$(printf '%s' "${ID:-} ${ID_LIKE:-} ${NAME:-} ${PRETTY_NAME:-}" | tr '[:upper:]' '[:lower:]')"
+    else OS_NAME="Unknown"; OS_VER=""; OS_MATCH=""; fi
+    if [[ "$OS_MATCH" == *"astra"* || "$OS_MATCH" == *"alse"* ]]; then
+        if [[ "$OS_VER" == 1.7* ]]; then OS_TYPE="astra17";
+        elif [[ "$OS_VER" == 1.8* ]]; then OS_TYPE="astra18";
         else OS_TYPE="astra"; fi
-    elif [[ "$OS_NAME" == *"ALT"* ]]; then OS_TYPE="alt";
-    elif [[ "$OS_NAME" == *"RED"* || "$OS_NAME" == *"Red"* ]]; then OS_TYPE="redos";
+    elif [[ "$OS_MATCH" == *"altlinux"* || "$OS_MATCH" == *"alt linux"* || "$OS_MATCH" == *"alt"* ]]; then OS_TYPE="alt";
+    elif [[ "$OS_MATCH" == *"redos"* || "$OS_MATCH" == *"red os"* || "$OS_MATCH" == *"red-os"* || "$OS_MATCH" == *"red_os"* ]]; then OS_TYPE="redos";
     else OS_TYPE="generic"; fi
 }
 detect_os

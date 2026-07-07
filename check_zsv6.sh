@@ -14,8 +14,11 @@ check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
 check_skip() { echo "[$1] SKIP – $2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 OS="generic"
-[ -f /etc/os-release ] && . /etc/os-release
-[[ "$NAME" == *"Astra"* ]] && OS="astra"
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS_MATCH="$(printf '%s' "${ID:-} ${ID_LIKE:-} ${NAME:-} ${PRETTY_NAME:-}" | tr '[:upper:]' '[:lower:]')"
+    [[ "$OS_MATCH" == *"astra"* || "$OS_MATCH" == *"alse"* ]] && OS="astra"
+fi
 
 # --- ПРОВЕРКА НАЛИЧИЯ СРЕДСТВ ВИРТУАЛИЗАЦИИ ---
 # Если libvirt/virsh не обнаружены, проверка ЗСВ.1 пропускается

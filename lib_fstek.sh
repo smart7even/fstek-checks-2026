@@ -11,37 +11,117 @@ FAIL_COUNT=0
 SKIP_COUNT=0
 PASS_COUNT=0
 
-check_pass() { echo "[$1] PASS – $2"; ((PASS_COUNT++)); }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2 (НЕВОЗМОЖНО ПРОВЕРИТЬ АВТОМАТИЧЕСКИ)"; ((SKIP_COUNT++)); }
-check_na() { echo "[$1] SKIP – $2 (НЕПРИМЕНИМО)"; ((SKIP_COUNT++)); }
-skip_enhancement() { echo "[$1] SKIP – проверка усилений отключена"; ((SKIP_COUNT++)); }
+fstek_color_enabled() {
+    case "${FSTEK_COLOR:-auto}" in
+        always|yes|true|1) return 0 ;;
+        never|no|false|0) return 1 ;;
+    esac
+    [ -n "${NO_COLOR:-}" ] && return 1
+    [ -t 1 ]
+}
+
+fstek_init_colors() {
+    if fstek_color_enabled; then
+        FSTEK_C_PASS=$'\033[32m'
+        FSTEK_C_FAIL=$'\033[31m'
+        FSTEK_C_SKIP=$'\033[33m'
+        FSTEK_C_RESET=$'\033[0m'
+    else
+        FSTEK_C_PASS=""
+        FSTEK_C_FAIL=""
+        FSTEK_C_SKIP=""
+        FSTEK_C_RESET=""
+    fi
+}
+
+fstek_status_color() {
+    case "$1" in
+        PASS) printf '%s' "$FSTEK_C_PASS" ;;
+        FAIL) printf '%s' "$FSTEK_C_FAIL" ;;
+        SKIP) printf '%s' "$FSTEK_C_SKIP" ;;
+        *) printf '' ;;
+    esac
+}
+
+fstek_status_line() {
+    local code="$1" status="$2" text="$3" color
+    color="$(fstek_status_color "$status")"
+    printf '[%s] %b%s%b – %s\n' "$code" "$color" "$status" "$FSTEK_C_RESET" "$text"
+}
+
+fstek_colorize_statuses() {
+    if fstek_color_enabled; then
+        sed -E \
+            -e $'s/(^|[^[:alnum:]_])(PASS)([^[:alnum:]_]|$)/\\1\033[32m\\2\033[0m\\3/g' \
+            -e $'s/(^|[^[:alnum:]_])(FAIL)([^[:alnum:]_]|$)/\\1\033[31m\\2\033[0m\\3/g' \
+            -e $'s/(^|[^[:alnum:]_])(SKIP)([^[:alnum:]_]|$)/\\1\033[33m\\2\033[0m\\3/g'
+    else
+        cat
+    fi
+}
+
+fstek_init_colors
+
+check_pass() { fstek_status_line "$1" "PASS" "$2"; ((PASS_COUNT++)); return 0; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); return 0; }
+check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕВОЗМОЖНО ПРОВЕРИТЬ АВТОМАТИЧЕСКИ)"; ((SKIP_COUNT++)); return 0; }
+check_na() { fstek_status_line "$1" "SKIP" "$2 (НЕПРИМЕНИМО)"; ((SKIP_COUNT++)); return 0; }
+skip_enhancement() { fstek_status_line "$1" "SKIP" "проверка усилений отключена"; ((SKIP_COUNT++)); return 0; }
 
 init_measure() {
     MEASURE_CODE="$1"
     MEASURE_TITLE="$2"
     detect_os
     echo "=== МОДУЛЬ $MEASURE_CODE: $MEASURE_TITLE ==="
-    echo "ОС: ${OS_NAME:-Unknown} ${OS_VER:-}"
+    fstek_print_os_info
 }
 
 finish_measure() {
-    echo "=== ИТОГ МОДУЛЯ $MEASURE_CODE: PASS=$PASS_COUNT, FAIL=$FAIL_COUNT, SKIP=$SKIP_COUNT ==="
+    printf '=== ИТОГ МОДУЛЯ %s: PASS=%s, FAIL=%s, SKIP=%s ===\n' "$MEASURE_CODE" "$PASS_COUNT" "$FAIL_COUNT" "$SKIP_COUNT" | fstek_colorize_statuses
     [ "$FAIL_COUNT" -eq 0 ] && exit 0 || exit 1
 }
 
 detect_os() {
-    OS_NAME="Unknown"; OS_VER=""; OS_TYPE="generic"
+    OS_NAME="Unknown"; OS_PRETTY="Unknown"; OS_VER=""; OS_ID=""; OS_ID_LIKE=""
+    OS_TYPE="generic"; OS_LABEL="Unknown"; OS_SUPPORTED=false
     if [ -f /etc/os-release ]; then
         . /etc/os-release
         OS_NAME="${NAME:-Unknown}"
+        OS_PRETTY="${PRETTY_NAME:-$OS_NAME}"
         OS_VER="${VERSION_ID:-}"
+        OS_ID="${ID:-}"
+        OS_ID_LIKE="${ID_LIKE:-}"
     fi
-    case "$OS_NAME" in
-        *Astra*) [[ "$OS_VER" == *"1.7"* ]] && OS_TYPE="astra17" || { [[ "$OS_VER" == *"1.8"* ]] && OS_TYPE="astra18" || OS_TYPE="astra"; } ;;
-        *ALT*) OS_TYPE="alt" ;;
-        *RED*|*Red*) OS_TYPE="redos" ;;
+
+    local os_match
+    os_match="$(printf '%s' "$OS_ID $OS_ID_LIKE $OS_NAME $OS_PRETTY" | tr '[:upper:]' '[:lower:]')"
+    OS_LABEL="${OS_PRETTY:-$OS_NAME}"
+
+    case "$os_match" in
+        *astra*|*alse*)
+            case "$OS_VER" in
+                1.7*) OS_TYPE="astra17"; OS_SUPPORTED=true; OS_LABEL="Astra Linux Special Edition 1.7" ;;
+                1.8*) OS_TYPE="astra18"; OS_SUPPORTED=true; OS_LABEL="Astra Linux Special Edition 1.8" ;;
+                *) OS_TYPE="astra"; OS_LABEL="${OS_PRETTY:-Astra Linux}" ;;
+            esac
+            ;;
+        *redos*|*"red os"*|*red-os*|*red_os*)
+            OS_TYPE="redos"
+            OS_SUPPORTED=true
+            OS_LABEL="${OS_PRETTY:-RED OS}"
+            ;;
+        *altlinux*|*"alt linux"*|*alt*)
+            OS_TYPE="alt"
+            OS_SUPPORTED=true
+            OS_LABEL="${OS_PRETTY:-ALT Linux}"
+            ;;
     esac
+}
+
+fstek_print_os_info() {
+    local supported_note=""
+    [ "$OS_SUPPORTED" = true ] || supported_note=" (ОС не входит в целевой список: ALSE 1.7/1.8, RED OS, ALT Linux)"
+    echo "ОС: ${OS_LABEL:-Unknown}${supported_note}"
 }
 
 is_linux() { [[ "$(uname -s 2>/dev/null)" == "Linux" ]]; }

@@ -1,0 +1,12 @@
+#!/bin/bash
+# check_ziv4.sh - Контроль целостности IoT (ЗИВ.4)
+# Соответствие разделу 4 Методического документа ФСТЭК России от 12.04.2026.
+# ОС: Astra Linux SE 1.7/1.8, ALT Linux, RED OS.
+# Запуск: ./check_ziv4.sh [--with-enhancements|-e]
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
+
+init_measure "ЗИВ.4" "Контроль целостности IoT"
+check_ziv4
+finish_measure

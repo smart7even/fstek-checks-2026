@@ -1,10 +1,16 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # Модуль проверки УПД.9 - Контроль действий субъектов доступа до идентификации и аутентификации
 WITH_ENHANCEMENTS=false
-[[ "$1" == "--with-enhancements" || "$1" == "-e" ]] && WITH_ENHANCEMENTS=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENHANCEMENTS=true ;;
+    esac
+done
 
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
 FAIL_COUNT=0
 
 # УПД.9.1 – Настройка Getty (отключение autologin)

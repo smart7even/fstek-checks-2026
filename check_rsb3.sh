@@ -1,13 +1,15 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # check_rsb3.sh - РСБ.3 Генерация временных меток (Синхронизация времени)
 
 FAIL_COUNT=0
 SKIP_COUNT=0
 
-# Унифицированные функции вывода (БЕЗ ЦВЕТОВ)
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
+# Унифицированные функции вывода
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 # РСБ.3.1 – Служба синхронизации времени
 NTP_ACTIVE=false

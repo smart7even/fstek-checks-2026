@@ -1,13 +1,20 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # check_rsb1.sh - РСБ.1 Определение событий безопасности
 
-WITH_ENH=false; [[ "$1" == "-e" || "$1" == "--with-enhancements" ]] && WITH_ENH=true
+WITH_ENH=false
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENH=true ;;
+    esac
+done
 FAIL_COUNT=0; SKIP_COUNT=0
 
-# Унифицированные функции вывода (БЕЗ ЦВЕТОВ)
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2"; ((SKIP_COUNT++)); }
+# Унифицированные функции вывода
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2"; ((SKIP_COUNT++)); }
 
 OS="generic"
 if [ -f /etc/os-release ]; then
@@ -55,29 +62,37 @@ else
     check_fail "РСБ.1.3" "Служба системного логирования не активна"
 fi
 
-if $WITH_ENH; then
+if fstek_enhancement_enabled "РСБ.1" "1"; then
     # РСБ.1.4 (Усиление 1) – Привилегированные команды
     if echo "$RULES" | grep -qE "execve.*(euid=0|uid=0|auid=0)"; then
         check_pass "РСБ.1.4" "Включено логирование привилегированных команд (execve)"
     else 
         check_fail "РСБ.1.4" "Отсутствуют правила аудита для привилегированных команд"
     fi
-    
+else
+    skip_enhancement "РСБ.1.4"
+fi
+
+if fstek_enhancement_enabled "РСБ.1" "3"; then
     # РСБ.1.5 (Усиление 3) – Место удаленного доступа (IP-адреса)
     if grep -qE "^LogLevel\s+VERBOSE" /etc/ssh/sshd_config 2>/dev/null; then
         check_pass "РСБ.1.5" "SSH: LogLevel VERBOSE (фиксируется IP/порт источника)"
     else 
         check_fail "РСБ.1.5" "SSH: Требуется LogLevel VERBOSE для фиксации места доступа"
     fi
-    
-    # РСБ.1.6 (Усиление 4) – Передача в SIEM
+else
+    skip_enhancement "РСБ.1.5"
+fi
+
+if fstek_enhancement_enabled "РСБ.1" "2"; then
+    # РСБ.1.6 (Усиление 2) – Централизованный мониторинг / SIEM
     if grep -rqE "^\*\.\*.*(@@|@)" /etc/rsyslog.d/ /etc/rsyslog.conf 2>/dev/null; then
         check_pass "РСБ.1.6" "Настроена отправка логов на удаленный SIEM/Syslog сервер"
     else 
         check_fail "РСБ.1.6" "Отправка логов на централизованный сервер (SIEM) не настроена"
     fi
 else
-    check_skip "РСБ.1.4-6" "Проверка усилений отключена (используйте флаг -e)"
+    skip_enhancement "РСБ.1.6"
 fi
 
 # Унифицированная итоговая строка

@@ -1,9 +1,15 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 WITH_ENHANCEMENTS=false
-[[ "$1" == "--with-enhancements" || "$1" == "-e" ]] && WITH_ENHANCEMENTS=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENHANCEMENTS=true ;;
+    esac
+done
 
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
 FAIL_COUNT=0
 
 # ИАФ.3.1 – Сложность пароля (minlen >= 12)
@@ -82,7 +88,7 @@ else
 fi
 
 # ИАФ.3.6 – Усиление (2FA / OTP)
-if $WITH_ENHANCEMENTS; then
+if fstek_enhancement_enabled "ИАФ.3" "1"; then
     if grep -rqE "pam_google_authenticator|pam_pkcs11|pam_oath|otp" /etc/pam.d/ 2>/dev/null; then
         check_pass "ИАФ.3.6" "Обнаружены модули 2FA/MFA в PAM"
     elif command -v ipa &>/dev/null && ipa config-show 2>/dev/null | grep -q "otp"; then
@@ -91,7 +97,7 @@ if $WITH_ENHANCEMENTS; then
         check_fail "ИАФ.3.6" "Двухфакторная аутентификация (2FA) не обнаружена"
     fi
 else
-    echo "[ИАФ.3.6] SKIP – проверка усилений отключена"
+    skip_enhancement "ИАФ.3.6"
 fi
 
 echo "=== ИТОГ МОДУЛЯ ИАФ.3: FAIL=$FAIL_COUNT ==="

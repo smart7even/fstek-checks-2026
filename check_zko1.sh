@@ -1,17 +1,23 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # check_zko1.sh - Контроль целостности в контейнерных средах (ЗКО.1)
 # Соответствие разделу 4.5 (ЗКО.1) Методического документа ФСТЭК России от 12.04.2026
 
 WITH_ENH=false
-[[ "$1" == "-e" || "$1" == "--with-enhancements" ]] && WITH_ENH=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENH=true ;;
+    esac
+done
 
 FAIL_COUNT=0
 SKIP_COUNT=0
 
-# Унифицированные функции вывода (БЕЗ ЦВЕТОВ)
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2"; ((SKIP_COUNT++)); }
+# Унифицированные функции вывода
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2"; ((SKIP_COUNT++)); }
 
 ENGINE="none"
 if command -v docker >/dev/null 2>&1 && systemctl is-active --quiet docker 2>/dev/null; then ENGINE="docker";
@@ -93,7 +99,7 @@ if ! $RUNTIME_CHECK && [ "$ENGINE" != "none" ]; then
 fi
 
 # --- ТРЕБОВАНИЯ К УСИЛЕНИЮ ---
-if $WITH_ENH; then
+if fstek_enhancement_enabled "ЗКО.1" "1" "2"; then
     # ЗКО.1.3 (Усиления 1 и 2) – Контроль целостности ПО и настроек ХОСТОВОЙ ОС и средства контейнеризации
     HOST_FIM=false
     FIM_PATHS=("/usr/bin/dockerd" "/usr/bin/podman" "/usr/bin/containerd" "/etc/docker" "/etc/containers")
@@ -121,7 +127,11 @@ if $WITH_ENH; then
     else
         check_fail "ЗКО.1.3" "ПО и параметры настройки хостовой ОС и средства контейнеризации не контролируются FIM-системой"
     fi
+else
+    skip_enhancement "ЗКО.1.3"
+fi
 
+if fstek_enhancement_enabled "ЗКО.1" "4"; then
     # ЗКО.1.4 (Усиление 4) – Контроль образов с использованием свидетельств подлинности (подписей)
     TRUST_CONFIGURED=false
     if [ "$ENGINE" == "docker" ]; then
@@ -140,7 +150,11 @@ if $WITH_ENH; then
     else
         check_fail "ЗКО.1.4" "Контроль отсутствия изменений с использованием свидетельств подлинности (подписей) не настроен"
     fi
+else
+    skip_enhancement "ЗКО.1.4"
+fi
 
+if fstek_enhancement_enabled "ЗКО.1" "6"; then
     # ЗКО.1.5 (Усиление 6) – Выявление образа с нарушенной целостностью
     if command -v cosign &>/dev/null || command -v trivy &>/dev/null || command -v grype &>/dev/null; then
         check_pass "ЗКО.1.5" "Установлены средства верификации целостности и уязвимостей образов (cosign/trivy/grype)"
@@ -149,7 +163,11 @@ if $WITH_ENH; then
     else
         check_fail "ЗКО.1.5" "Отсутствуют средства автоматического выявления образов с нарушенной целостностью"
     fi
+else
+    skip_enhancement "ЗКО.1.5"
+fi
 
+if fstek_enhancement_enabled "ЗКО.1" "7"; then
     # ЗКО.1.6 (Усиление 7) – Блокировка запуска образа с нарушенной целостностью
     BLOCK_CONFIGURED=false
     if [ "$ENGINE" == "docker" ]; then
@@ -171,9 +189,7 @@ if $WITH_ENH; then
         check_fail "ЗКО.1.6" "Блокировка запуска образов и ПО с нарушенной целостностью не настроена"
     fi
 else
-    # Унифицированный вывод для отключенных усилений
-    echo "[ЗКО.1.3-6] SKIP – проверка усилений отключена"
-    ((SKIP_COUNT++))
+    skip_enhancement "ЗКО.1.6"
 fi
 
 # Унифицированная итоговая строка

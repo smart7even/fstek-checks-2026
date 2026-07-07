@@ -1,17 +1,23 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # check_zsv2.sh - Контроль целостности средств виртуализации и виртуальных машин
 # Соответствие разделу 4.4 (ЗСВ.2) Методического документа ФСТЭК России от 12.04.2026
 
 WITH_ENH=false
-[[ "$1" == "-e" || "$1" == "--with-enhancements" ]] && WITH_ENH=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENH=true ;;
+    esac
+done
 
 FAIL_COUNT=0
 SKIP_COUNT=0
 
-# Унифицированные функции вывода (БЕЗ ЦВЕТОВ)
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
+# Унифицированные функции вывода
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 # --- ПРОВЕРКА НАЛИЧИЯ СРЕДСТВ ВИРТУАЛИЗАЦИИ ---
 # Если libvirt/virsh не обнаружены, проверка ЗСВ.1 пропускается
@@ -104,7 +110,7 @@ else
 fi
 
 # --- ТРЕБОВАНИЯ К УСИЛЕНИЮ ---
-if $WITH_ENH; then
+if fstek_enhancement_enabled "ЗСВ.2" "1"; then
     # ЗСВ.2.4 (Усиление 1) – Контроль исполняемых файлов гипервизора
     QEMU_BIN=$(which qemu-system-x86_64 2>/dev/null || which qemu-kvm 2>/dev/null)
     if [ -n "$QEMU_BIN" ]; then
@@ -118,7 +124,11 @@ if $WITH_ENH; then
     else
         check_skip "ЗСВ.2.4" "Исполняемый файл гипервизора не найден в стандартных путях"
     fi
+else
+    skip_enhancement "ЗСВ.2.4"
+fi
 
+if fstek_enhancement_enabled "ЗСВ.2" "3"; then
     # ЗСВ.2.5 (Усиление 3) – Контроль файлов виртуальной базовой системы ввода-вывода (BIOS ВМ)
     BIOS_CONTROLLED=false
     BIOS_PATHS=(/usr/share/OVMF /usr/share/seabios /usr/share/qemu)
@@ -137,7 +147,11 @@ if $WITH_ENH; then
     else
         check_fail "ЗСВ.2.5" "Файлы виртуального BIOS ВМ не контролируются (риск подмены загрузчика гостевой ОС)"
     fi
+else
+    skip_enhancement "ЗСВ.2.5"
+fi
 
+if fstek_enhancement_enabled "ЗСВ.2" "4"; then
     # ЗСВ.2.6 (Усиление 4) – Контроль исполняемых файлов ПО гостевой ОС
     if command -v virt-inspector &>/dev/null || command -v guestfish &>/dev/null; then
         check_pass "ЗСВ.2.6" "Установлен libguestfs для анализа и контроля файловых систем гостевых ОС"
@@ -147,9 +161,7 @@ if $WITH_ENH; then
         check_fail "ЗСВ.2.6" "Отсутствуют средства контроля исполняемых файлов гостевых ОС (требуется libguestfs или qemu-ga)"
     fi
 else
-    # Унифицированный вывод для отключенных усилений
-    echo "[ЗСВ.2.4-6] SKIP – проверка усилений отключена"
-    ((SKIP_COUNT++))
+    skip_enhancement "ЗСВ.2.6"
 fi
 
 # Унифицированная итоговая строка

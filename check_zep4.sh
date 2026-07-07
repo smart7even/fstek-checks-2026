@@ -1,17 +1,23 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # check_zep4.sh - Защита от фишинга (ЗЭП.4)
 # Соответствие разделу 4.6 (ЗЭП.4) Методического документа ФСТЭК России от 12.04.2026
 
 WITH_ENHANCEMENTS=false
-[[ "$1" == "--with-enhancements" || "$1" == "-e" ]] && WITH_ENHANCEMENTS=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENHANCEMENTS=true ;;
+    esac
+done
 
 FAIL_COUNT=0
 SKIP_COUNT=0
 
-# Унифицированные функции вывода (БЕЗ ЦВЕТОВ)
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
-check_skip() { echo "[$1] SKIP – $2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
+# Унифицированные функции вывода
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
+check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 # --- ПРОВЕРКА НАЛИЧИЯ ПОЧТОВОГО СЕРВЕРА ---
 # Если почтовый сервер не установлен, проверка ЗЭП.5 пропускается
@@ -45,7 +51,7 @@ check_skip "ЗЭП.4.2" "Контроль текста и ссылок на на
 check_skip "ЗЭП.4.3" "Ретроспективный анализ сообщений на наличие фишинга"
 
 # --- ТРЕБОВАНИЯ К УСИЛЕНИЮ ---
-if $WITH_ENHANCEMENTS; then
+if fstek_enhancement_enabled "ЗЭП.4" "4"; then
     # ЗЭП.4.4 (Усиление 4) - Верификация адресов (SPF/DKIM/DMARC)
     SPF_CHECK=$(grep -rqE "check_policy_service.*spf|pypolicyd-spf" /etc/postfix/ 2>/dev/null && echo "yes" || echo "no")
     DKIM_CHECK="no"
@@ -58,16 +64,22 @@ if $WITH_ENHANCEMENTS; then
     else
         check_fail "ЗЭП.4.4" "Не настроена верификация адресов отправителей (SPF/DKIM/DMARC)"
     fi
+else
+    skip_enhancement "ЗЭП.4.4"
+fi
 
+if fstek_enhancement_enabled "ЗЭП.4" "1"; then
     # ЗЭП.4.5 (Усиление 1) - Блокирование/карантин для фишинговых сообщений
     check_skip "ЗЭП.4.5" "Блокирование/карантин для фишинговых сообщений (настраивается в СЗИ)"
+else
+    skip_enhancement "ЗЭП.4.5"
+fi
 
+if fstek_enhancement_enabled "ЗЭП.4" "2" "3"; then
     # ЗЭП.4.6 (Усиления 2, 3) - Репутационная фильтрация и песочница для фишинга
     check_skip "ЗЭП.4.6" "Репутационная фильтрация и песочница для фишинга"
 else
-    # Унифицированный вывод для отключенных усилений
-    echo "[ЗЭП.4.4-6] SKIP – проверка усилений отключена"
-    ((SKIP_COUNT+=3))
+    skip_enhancement "ЗЭП.4.6"
 fi
 
 # Унифицированная итоговая строка

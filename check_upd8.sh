@@ -1,11 +1,17 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib_fstek.sh"
 # Модуль проверки УПД.8 - Блокирование сеанса при неактивности
 
 WITH_ENHANCEMENTS=false
-[[ "$1" == "--with-enhancements" || "$1" == "-e" ]] && WITH_ENHANCEMENTS=true
+for arg in "$@"; do
+    case "$arg" in
+        --with-enhancements|-e|--class|--security-class|-c|--class=*|--security-class=*|--k1|--K1|--к1|--К1|--k2|--K2|--к2|--К2|--k3|--K3|--к3|--К3) WITH_ENHANCEMENTS=true ;;
+    esac
+done
 
-check_pass() { echo "[$1] PASS – $2"; }
-check_fail() { echo "[$1] FAIL – $2"; ((FAIL_COUNT++)); }
+check_pass() { fstek_status_line "$1" "PASS" "$2"; }
+check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
 FAIL_COUNT=0
 
 # УПД.8.1 – TMOUT в shell
@@ -65,7 +71,7 @@ else
 fi
 
 # УПД.8.4 – Усиление: Автоматическое завершение сеанса
-if $WITH_ENHANCEMENTS; then
+if fstek_enhancement_enabled "УПД.8" "1"; then
     AUTO_LOGOUT=false
     
     # Проверяем TMOUT с export
@@ -90,7 +96,7 @@ if $WITH_ENHANCEMENTS; then
         check_fail "УПД.8.4" "Автоматическое завершение сеанса не настроено"
     fi
 else
-    echo "[УПД.8.4] SKIP – проверка усилений отключена"
+    skip_enhancement "УПД.8.4"
 fi
 
 echo "=== ИТОГ МОДУЛЯ УПД.8: FAIL=$FAIL_COUNT ==="

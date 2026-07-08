@@ -29,14 +29,22 @@ for agent in wazuh-agent ossec-hids-agent splunkd filebeat logstash; do
     fi
 done
 
-if $AGENT_FOUND; then
-    check_pass "РСБ.2.1" "Обнаружен агент централизованного анализа/SIEM ($AGENT_NAME)"
+ANALYSIS_CONFIG_FOUND=false
+if grep -RIEq "rule|decoder|correlation|alert|sigma|threshold|frequency|if_sid|search|detection" /var/ossec/etc /etc/wazuh* /etc/ossec* /etc/filebeat /etc/auditbeat /etc/logstash /opt/splunk/etc 2>/dev/null; then
+    ANALYSIS_CONFIG_FOUND=true
+fi
+
+if $AGENT_FOUND && $ANALYSIS_CONFIG_FOUND; then
+    check_pass "РСБ.2.1" "Обнаружен агент и правила/настройки анализа событий безопасности ($AGENT_NAME)"
+elif $AGENT_FOUND; then
+    check_fail "РСБ.2.1" "Обнаружен агент $AGENT_NAME, но не подтверждены правила/настройки анализа событий безопасности"
 else
     check_skip "РСБ.2.1" "Агенты HIDS/SIEM не найдены (возможен ручной анализ или сетевой SIEM)"
 fi
 
 # РСБ.2.2 – Организационная мера
 check_skip "РСБ.2.2" "Наличие регламента периодического анализа (Требует ручной проверки)"
+check_skip "РСБ.2.2a" "Порядок реагирования на признаки компьютерных атак и инциденты подтверждается регламентом и журналами реагирования"
 
 if fstek_enhancement_enabled "РСБ.2" "1"; then
     # РСБ.2.3 (Усиление 1, 2) – Корреляция и IDS

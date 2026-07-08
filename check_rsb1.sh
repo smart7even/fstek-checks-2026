@@ -38,22 +38,29 @@ else
     fi
 fi
 
-# РСБ.1.2 – Состав событий (USB, запуск программ, входы/выходы)
+# РСБ.1.2 – Минимальный состав событий по методике
 RULES=$(auditctl -l 2>/dev/null; cat /etc/audit/rules.d/*.rules 2>/dev/null)
-USB_OK=false; [[ "$RULES" =~ /dev/|/media/|/mnt/|usb ]] && USB_OK=true
-EXEC_OK=false; [[ "$RULES" =~ execve|-S\ execve ]] && EXEC_OK=true
-LOGIN_OK=false; [[ "$RULES" =~ logins|USER_LOGIN|sshd|/var/run/utmp|/var/log/faillog|pam_tally ]] && LOGIN_OK=true
+USB_OK=false; echo "$RULES" | grep -qiE "/dev|/media|/mnt|usb|udisks|mount" && USB_OK=true
+EXEC_OK=false; echo "$RULES" | grep -qiE "execve|-S[[:space:]]+execve|/usr/bin|/usr/sbin" && EXEC_OK=true
+LOGIN_OK=false; echo "$RULES" | grep -qiE "logins|USER_LOGIN|USER_LOGOUT|/var/run/utmp|/var/log/(wtmp|btmp|faillog)|pam_tally|faillock" && LOGIN_OK=true
+REMOTE_OK=false; echo "$RULES" | grep -qiE "sshd|/etc/ssh|USER_AUTH|remote|vpn|openvpn|wireguard|ipsec" && REMOTE_OK=true
+OBJECT_ACCESS_OK=false; echo "$RULES" | grep -qiE "^-a .* -S (open|openat|creat|truncate|unlink|rename|chmod|chown)|-w /etc/(passwd|shadow|sudoers|group)|perm=| -p (r|w|x|a)" && OBJECT_ACCESS_OK=true
+SECURITY_TOOL_OK=false; echo "$RULES" | grep -qiE "audit|/etc/audit|/etc/pam.d|/etc/security|/etc/sudoers|/etc/ssh|firewall|nftables|iptables" && SECURITY_TOOL_OK=true
 
-if $USB_OK && $EXEC_OK && $LOGIN_OK; then
-    check_pass "РСБ.1.2" "Настроены обязательные события: носители (USB), запуск программ, входы"
+if $USB_OK && $EXEC_OK && $LOGIN_OK && $REMOTE_OK && $OBJECT_ACCESS_OK && $SECURITY_TOOL_OK; then
+    check_pass "РСБ.1.2" "Настроены минимальные категории событий: входы, носители, запуск/завершение программ, доступ к объектам, удаленный доступ, события СЗИ"
 else
-    # Исправлено формирование строки ошибок
     MISSING=""
-    [[ "$USB_OK" == false ]] && MISSING+="USB "
-    [[ "$EXEC_OK" == false ]] && MISSING+="execve "
-    [[ "$LOGIN_OK" == false ]] && MISSING+="logins "
+    $LOGIN_OK || MISSING+="logins "
+    $USB_OK || MISSING+="media "
+    $EXEC_OK || MISSING+="exec/process "
+    $OBJECT_ACCESS_OK || MISSING+="object-access "
+    $REMOTE_OK || MISSING+="remote-access "
+    $SECURITY_TOOL_OK || MISSING+="security-tools "
     check_fail "РСБ.1.2" "Отсутствуют правила аудита для: $MISSING"
 fi
+
+check_skip "РСБ.1.2a" "Полный перечень типов событий и состав полей по ГОСТ Р 59548-2022 определяется оператором и проверяется по эксплуатационной документации"
 
 # РСБ.1.3 – Системное логирование
 if systemctl is-active --quiet rsyslog 2>/dev/null || systemctl is-active --quiet systemd-journald 2>/dev/null; then

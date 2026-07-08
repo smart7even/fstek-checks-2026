@@ -17,7 +17,7 @@ FAIL_COUNT=0
 # УПД.8.1 – TMOUT в shell
 TMOUT_CONFIGURED=false
 for profile in /etc/profile /etc/profile.d/*.sh /etc/bash.bashrc; do
-    if [ -f "$profile" ] && grep -qE "readonly TMOUT=[0-9]+|export TMOUT=[0-9]+" "$profile"; then
+    if [ -f "$profile" ] && grep -qE "(readonly|export)?[[:space:]]*TMOUT=[0-9]+" "$profile"; then
         TMOUT_VALUE=$(grep -E "TMOUT=[0-9]+" "$profile" | head -1 | grep -oE "[0-9]+")
         if [ "$TMOUT_VALUE" -gt 0 ] && [ "$TMOUT_VALUE" -le 900 ]; then
             TMOUT_CONFIGURED=true
@@ -29,6 +29,26 @@ done
 
 if ! $TMOUT_CONFIGURED; then
     check_fail "УПД.8.1" "TMOUT не настроен или значение > 900 секунд"
+fi
+
+# УПД.8.1a – Неактивность SSH-сессий
+SSH_IDLE_CONFIGURED=false
+for ssh_cfg in /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf; do
+    if [ -f "$ssh_cfg" ]; then
+        CLIENT_ALIVE=$(awk '$1 == "ClientAliveInterval" {print $2}' "$ssh_cfg" | tail -1)
+        CLIENT_COUNT=$(awk '$1 == "ClientAliveCountMax" {print $2}' "$ssh_cfg" | tail -1)
+        if [[ "$CLIENT_ALIVE" =~ ^[0-9]+$ ]] && [ "$CLIENT_ALIVE" -gt 0 ] && [ "$CLIENT_ALIVE" -le 900 ]; then
+            if [ -z "$CLIENT_COUNT" ] || ! [[ "$CLIENT_COUNT" =~ ^[0-9]+$ ]] || [ "$CLIENT_COUNT" -le 3 ]; then
+                SSH_IDLE_CONFIGURED=true
+                check_pass "УПД.8.1a" "SSH ClientAliveInterval настроен в $ssh_cfg: ${CLIENT_ALIVE}s"
+                break
+            fi
+        fi
+    fi
+done
+
+if ! $SSH_IDLE_CONFIGURED; then
+    check_fail "УПД.8.1a" "Не настроено ограничение неактивности SSH-сессий (ClientAliveInterval <= 900)"
 fi
 
 # УПД.8.2 – Screensaver (автоблокировка экрана)

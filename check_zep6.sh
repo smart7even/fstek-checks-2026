@@ -30,20 +30,19 @@ fi
 # --- БАЗОВЫЕ ТРЕБОВАНИЯ ---
 
 # ЗЭП.6.1 - Сокрытие служебных заголовков (X-Mailer, User-Agent, X-Originating-IP, Message-ID)
-HEADER_CHECKS=$(postconf -h header_checks 2>/dev/null)
+HEADER_CHECKS="$(postconf -h header_checks 2>/dev/null; postconf -h smtp_header_checks 2>/dev/null; postconf -h mime_header_checks 2>/dev/null)"
 HIDE_MASK="X-Mailer|User-Agent|X-Originating-IP|Message-ID"
 HIDE_FOUND=false
 
-if [ -n "$HEADER_CHECKS" ] && [ "$HEADER_CHECKS" != " " ]; then
-    HEADER_FILE=$(echo "$HEADER_CHECKS" | awk '{print $2}')
-    if [ -f "$HEADER_FILE" ] && grep -qE "$HIDE_MASK" "$HEADER_FILE" 2>/dev/null; then
-        HIDE_FOUND=true
-    fi
-fi
-
-# Альтернатива: проверка через milter
-if ! $HIDE_FOUND && [ -n "$(postconf -h smtpd_milters 2>/dev/null)" ]; then 
-    HIDE_FOUND=true
+if [ -n "$HEADER_CHECKS" ]; then
+    while read -r map; do
+        HEADER_FILE="${map#*:}"
+        HEADER_FILE="${HEADER_FILE%%,*}"
+        if [ -f "$HEADER_FILE" ] && grep -qE "^[^#].*($HIDE_MASK).*(IGNORE|REPLACE|DISCARD|PREPEND|WARN)" "$HEADER_FILE" 2>/dev/null; then
+            HIDE_FOUND=true
+            break
+        fi
+    done < <(echo "$HEADER_CHECKS" | tr ', ' '\n' | grep -E '^(regexp|pcre|hash|texthash):/')
 fi
 
 if $HIDE_FOUND; then

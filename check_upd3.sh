@@ -14,21 +14,38 @@ check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
 FAIL_COUNT=0
 
 # УПД.3.1 – Заблокированные учетные записи и неактивные УЗ
-LOCKED_ACCOUNTS=$(passwd -S 2>/dev/null | grep -c " L " || grep -cE "^[^:]+:.*:.*:.*:.*:.*:.*:\*$" /etc/shadow 2>/dev/null || echo "0")
+LOCKED_ACCOUNTS=$(passwd -S 2>/dev/null | grep -c " L ")
+if ! [[ "$LOCKED_ACCOUNTS" =~ ^[0-9]+$ ]]; then
+    LOCKED_ACCOUNTS=$(grep -cE "^[^:]+:.*:.*:.*:.*:.*:.*:\*$" /etc/shadow 2>/dev/null)
+fi
+LOCKED_ACCOUNTS="${LOCKED_ACCOUNTS:-0}"
 
-# ИСПРАВЛЕНИЕ: Надежная проверка неактивных УЗ через /etc/shadow (поле 7 - период неактивности)
-# Вместо уязвимого lastlog, который падает на "Never logged in" и выдает ошибки bash
-INACTIVE_90_DAYS=0
-if [ -f /etc/shadow ]; then
-    while IFS=: read -r user _ _ _ _ _ inactive _; do
-        # Если поле inactive задано и оно больше 90 дней
-        if [[ "$inactive" =~ ^[0-9]+$ ]] && [ "$inactive" -gt 90 ]; then
-            ((INACTIVE_90_DAYS++))
+# Поле inactive в /etc/shadow не является датой последнего входа, поэтому
+# фактическую неактивность проверяем по lastlog, когда он доступен.
+INACTIVE_USERS=()
+if command -v lastlog &>/dev/null; then
+    while read -r user; do
+        [ -n "$user" ] || continue
+        if awk -F: -v u="$user" '$1 == u && $7 !~ /(nologin|false)$/ {found=1} END {exit !found}' /etc/passwd 2>/dev/null; then
+            INACTIVE_USERS+=("$user")
         fi
-    done < /etc/shadow
+    done < <(lastlog -b 90 2>/dev/null | awk 'NR > 1 && $0 !~ /Never logged in|Никогда/ {print $1}')
+else
+    check_skip "УПД.3.1" "Команда lastlog отсутствует, дату последнего входа учетных записей проверить нельзя"
 fi
 
-check_pass "УПД.3.1" "Заблокировано учетных записей: $LOCKED_ACCOUNTS, неактивных >90 дней: $INACTIVE_90_DAYS"
+if command -v lastlog &>/dev/null && [ "${#INACTIVE_USERS[@]}" -eq 0 ]; then
+    check_pass "УПД.3.1" "Заблокировано учетных записей: $LOCKED_ACCOUNTS; активных локальных УЗ с последним входом старше 90 дней не обнаружено"
+elif command -v lastlog &>/dev/null; then
+    check_fail "УПД.3.1" "Обнаружены активные локальные УЗ с последним входом старше 90 дней: ${INACTIVE_USERS[*]}"
+fi
+
+SHADOW_INACTIVE_BAD=$(awk -F: '$7 ~ /^[0-9]+$/ && $7 > 90 {print $1 ":" $7}' /etc/shadow 2>/dev/null | xargs)
+if [ -n "$SHADOW_INACTIVE_BAD" ]; then
+    check_fail "УПД.3.1a" "Период неактивности после истечения пароля в /etc/shadow больше 90 дней: $SHADOW_INACTIVE_BAD"
+else
+    check_pass "УПД.3.1a" "В /etc/shadow не задан период неактивности после истечения пароля больше 90 дней"
+fi
 
 # УПД.3.2 – Срок действия паролей
 MAX_DAYS_CONFIGURED=0
@@ -56,7 +73,7 @@ fi
 # УПД.3.4 – Журнал изменений учетных записей (auditd)
 if systemctl is-active --quiet auditd 2>/dev/null; then
     # УСИЛЕНИЕ: Более строгая проверка правил auditd на конкретные критические файлы
-    AUDIT_RULES=$(auditctl -l 2>/dev/null | grep -cE "\-w /etc/passwd|\-w /etc/shadow|\-w /etc/group|\-w /etc/gshadow" || echo "0")
+    AUDIT_RULES=$(auditctl -l 2>/dev/null | grep -cE "\-w /etc/passwd|\-w /etc/shadow|\-w /etc/group|\-w /etc/gshadow")
     
     if [ "$AUDIT_RULES" -ge 3 ]; then 
         # Ожидаем, что настроено минимум 3 правила из 4 возможных

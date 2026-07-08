@@ -34,16 +34,24 @@ check_file_perms "/etc/shadow" "640" "Файл /etc/shadow"
 check_file_perms "/etc/sudoers" "440" "Файл /etc/sudoers"
 
 # УПД.2.2 – Отсутствие дублирующихся UID (запрет общих учетных записей и скрытого шаринга прав)
-# ИСПРАВЛЕНИЕ: Проверяем наличие разных имен с одинаковым UID. 
-# Это прямое нарушение принципа уникальной идентификации и минимизации прав из методички ФСТЭК.
-# Исключаем UID 0 (root), так как для него наличие алиасов (например, toor) иногда допустимо, 
-# но дубликаты для обычных пользователей (UID >= 1000) строго запрещены.
-DUP_UIDS=$(awk -F: '{print $3}' /etc/passwd | sort | uniq -d | grep -v "^0$")
+DUP_UIDS=$(awk -F: '{print $3}' /etc/passwd | sort | uniq -d)
 
 if [ -z "$DUP_UIDS" ]; then
     check_pass "УПД.2.2" "Дублирующиеся UID в /etc/passwd отсутствуют"
 else
-    check_fail "УПД.2.2" "Обнаружены дублирующиеся UID (риск использования общих прав): $DUP_UIDS"
+    check_fail "УПД.2.2" "Обнаружены дублирующиеся UID, включая возможные общие/root-alias учетные записи: $DUP_UIDS"
+fi
+
+# УПД.2.2a – Признаки групповых/общих и заданных по умолчанию учетных записей
+SHARED_ACCOUNTS=$(awk -F: '
+    $1 ~ /^(guest|test|user|shared|common|operator|admin|toor)$/ && $7 !~ /(nologin|false)$/ {print $1}
+' /etc/passwd 2>/dev/null | xargs)
+SAME_HOME_USERS=$(awk -F: '$3 >= 1000 && $6 ~ "^/home/" {homes[$6]=homes[$6] " " $1; count[$6]++} END {for (h in count) if (count[h] > 1) print h ":" homes[h]}' /etc/passwd 2>/dev/null | xargs)
+
+if [ -z "$SHARED_ACCOUNTS" ] && [ -z "$SAME_HOME_USERS" ]; then
+    check_pass "УПД.2.2a" "Не обнаружены типовые активные guest/test/shared учетные записи и несколько пользователей с одним home"
+else
+    check_fail "УПД.2.2a" "Обнаружены признаки общих/default учетных записей: users=[$SHARED_ACCOUNTS], homes=[$SAME_HOME_USERS]"
 fi
 
 # УПД.2.3 – SUID/SGID файлы (проверка минимизации привилегий)
@@ -91,6 +99,14 @@ if fstek_enhancement_enabled "УПД.2" "1" "2"; then
 else
     skip_enhancement "УПД.2.5"
 fi
+
+if fstek_enhancement_enabled "УПД.2" "2"; then
+    check_skip "УПД.2.6" "Минимизация прав устройств, приложений, СЗИ, СУБД, CI/CD, хранилищ секретов и сетевой инфраструктуры подтверждается матрицей доступа и настройками конкретных компонентов"
+else
+    skip_enhancement "УПД.2.6"
+fi
+
+check_skip "УПД.2.7" "Наличие главного администратора и разделение ролей администрирования, разработки и безопасности проверяются по эксплуатационной документации и приказам"
 
 echo "=== ИТОГ МОДУЛЯ УПД.2: FAIL=$FAIL_COUNT ==="
 [ $FAIL_COUNT -eq 0 ] && exit 0 || exit 1

@@ -32,24 +32,33 @@ fi
 # ЗЭП.3.1 - Антивирусная защита (АВЗ.2)
 CONTENT_FILTER=$(postconf -h content_filter 2>/dev/null)
 MILTERS=$(postconf -h smtpd_milters 2>/dev/null)
-if [ -n "$CONTENT_FILTER" ] || [ -n "$MILTERS" ]; then
-    check_pass "ЗЭП.3.1" "Настроен контент-фильтр или milter (Антивирусная защита)"
+if echo "$CONTENT_FILTER $MILTERS" | grep -qiE "clam|amavis|rspamd|spamd|virus|av|drweb|kaspersky|kesl|milter.*(clam|av|virus)" || \
+   grep -RIEq "clamav|clamd|amavis|rspamd.*antivirus|virus|drweb|kaspersky|kesl" /etc/postfix /etc/amavis /etc/rspamd /etc/clamav 2>/dev/null; then
+    check_pass "ЗЭП.3.1" "Настроена интеграция почты с антивирусной проверкой"
 else
-    check_fail "ЗЭП.3.1" "Не обнаружен контент-фильтр или milter для AV-проверки"
+    check_fail "ЗЭП.3.1" "Не подтверждена антивирусная природа content_filter/milter для проверки вложений"
 fi
 
 # ЗЭП.3.2 - Блокирование неразрешенных форматов
-if grep -rqE "header_checks|mime_header_checks|body_checks" /etc/postfix/main.cf 2>/dev/null; then
-    check_pass "ЗЭП.3.2" "Настроены правила фильтрации/блокировки форматов вложений (header/body_checks)"
+if grep -RIEq "(\.(exe|scr|bat|cmd|com|js|vbs|jar|ps1|msi|hta|lnk)|application/(x-msdownload|x-dosexec)|filename=.*\.(exe|scr|bat|cmd|js|vbs|jar|ps1|msi|hta|lnk)).*(REJECT|DISCARD|quarantine|block)" /etc/postfix /etc/amavis /etc/rspamd 2>/dev/null; then
+    check_pass "ЗЭП.3.2" "Настроены правила блокирования неразрешенных форматов вложений"
 else
-    check_fail "ЗЭП.3.2" "Не найдены правила блокировки неразрешенных форматов файлов"
+    check_fail "ЗЭП.3.2" "Не найдены явные правила блокирования неразрешенных форматов файлов"
 fi
 
 # ЗЭП.3.3 - Контроль вложений с использованием IOCs
-check_skip "ЗЭП.3.3" "Контроль вложений с использованием индикаторов компрометации (IOCs)"
+if grep -RIEq "ioc|yara|hash|sha256|suricata|threat.?intel|indicator|reputation|rspamd.*(url|phishing|antivirus)" /etc/postfix /etc/amavis /etc/rspamd /etc/clamav /etc/yara 2>/dev/null; then
+    check_pass "ЗЭП.3.3" "Обнаружены признаки контроля вложений/ссылок по IOC/репутационным индикаторам"
+else
+    check_skip "ЗЭП.3.3" "Контроль вложений и ссылок с использованием IOC подтверждается политиками почтового шлюза/СЗИ"
+fi
 
 # ЗЭП.3.4 - Возможность ретроспективного анализа вложений
-check_skip "ЗЭП.3.4" "Возможность ретроспективного анализа вложений"
+if grep -RIEq "quarantine|archive|history|store.*attachment|retrospective|rspamd.*history" /etc/postfix /etc/amavis /etc/rspamd /var/lib/rspamd 2>/dev/null; then
+    check_pass "ЗЭП.3.4" "Обнаружены признаки карантина/хранения данных для ретроспективного анализа вложений"
+else
+    check_skip "ЗЭП.3.4" "Возможность ретроспективного анализа вложений и ссылок подтверждается настройками почтового шлюза/СЗИ и сроками хранения"
+fi
 
 # --- ТРЕБОВАНИЯ К УСИЛЕНИЮ ---
 if fstek_enhancement_enabled "ЗЭП.3" "1"; then

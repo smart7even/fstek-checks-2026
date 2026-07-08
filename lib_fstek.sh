@@ -108,6 +108,79 @@ fstek_required_enhancements() {
     esac
 }
 
+fstek_measure_classes() {
+    case "$1" in
+        ИАФ.1|ИАФ.3|\
+        УПД.1|УПД.2|УПД.3|УПД.4|УПД.8|УПД.9|\
+        РСБ.1|РСБ.2|РСБ.3|РСБ.4|РСБ.5|\
+        ЗСВ.1|ЗСВ.2|ЗСВ.3|ЗСВ.4|ЗСВ.5|ЗСВ.6|ЗСВ.7|ЗСВ.8|\
+        ЗКО.1|ЗКО.2|ЗКО.3|ЗКО.4|ЗКО.5|ЗКО.6|ЗКО.7|ЗКО.8|\
+        ЗЭП.1|ЗЭП.2|ЗЭП.3|ЗЭП.4|ЗЭП.5|ЗЭП.6|\
+        ЗВТ.1|ЗВТ.2|ЗВТ.3|ЗВТ.4|ЗВТ.5|\
+        ЗПИ.1|ЗПИ.2|ЗПИ.3|\
+        ЗКУ.1|ЗКУ.2|ЗКУ.3|ЗКУ.4|ЗКУ.6|\
+        ЗМУ.1|ЗМУ.2|ЗМУ.3|ЗМУ.4|ЗМУ.5|ЗМУ.6|ЗМУ.7|ЗМУ.9|\
+        ЗИВ.1|ЗИВ.2|ЗИВ.3|ЗИВ.4|ЗИВ.5|\
+        ЗБД.1|ЗБД.2|ЗБД.3|ЗБД.4|ЗБД.5|ЗБД.6|\
+        АВЗ.1|АВЗ.2|АВЗ.3|\
+        СОВ.1|СОВ.2|\
+        МСЭ.1|МСЭ.2|МСЭ.3|\
+        ЗОО.1|ЗОО.2|ЗОО.3|ЗОО.5|\
+        ЗКС.1|ЗКС.2|ЗКС.3)
+            printf 'K3 K2 K1'
+            ;;
+        УПД.7|ЗСВ.9|ЗОО.6)
+            printf 'K2 K1'
+            ;;
+        *)
+            printf ''
+            ;;
+    esac
+}
+
+fstek_measure_enabled() {
+    local measure="$1" class="$2" enabled
+    enabled="$(fstek_measure_classes "$measure")"
+    [ -n "$enabled" ] || return 1
+    for class in $enabled; do
+        [ "$class" = "$2" ] && return 0
+    done
+    return 1
+}
+
+fstek_measure_code_from_script() {
+    local script base prefix number code_prefix
+    script="${1##*/}"
+    base="${script#check_}"
+    base="${base%.sh}"
+    prefix="${base%%[0-9]*}"
+    number="${base#$prefix}"
+
+    case "$prefix" in
+        iaf) code_prefix="ИАФ" ;;
+        upd) code_prefix="УПД" ;;
+        rsb) code_prefix="РСБ" ;;
+        zsv) code_prefix="ЗСВ" ;;
+        zko) code_prefix="ЗКО" ;;
+        zep) code_prefix="ЗЭП" ;;
+        zvt) code_prefix="ЗВТ" ;;
+        zpi) code_prefix="ЗПИ" ;;
+        zku) code_prefix="ЗКУ" ;;
+        zmu) code_prefix="ЗМУ" ;;
+        ziv) code_prefix="ЗИВ" ;;
+        zbd) code_prefix="ЗБД" ;;
+        avz) code_prefix="АВЗ" ;;
+        sov) code_prefix="СОВ" ;;
+        mse) code_prefix="МСЭ" ;;
+        zoo) code_prefix="ЗОО" ;;
+        zks) code_prefix="ЗКС" ;;
+        *) return 1 ;;
+    esac
+
+    [ -n "$number" ] || return 1
+    printf '%s.%s' "$code_prefix" "$number"
+}
+
 fstek_enhancement_enabled() {
     local measure="$1" required id want
     shift
@@ -411,7 +484,10 @@ check_siem_forwarding() {
 
 check_fail2ban_or_reaction() {
     local code="$1"
-    if service_active fail2ban crowdsec || grep_any "ban|deny|block|drop" /etc/fail2ban /etc/crowdsec /etc/nginx /etc/apache2 /etc/httpd 2>/dev/null; then
+    if service_active fail2ban crowdsec || \
+       grep_any "^[^#].*(banaction|action.*ban|decision|remediation)" /etc/fail2ban /etc/crowdsec 2>/dev/null || \
+       grep_any "^[^#].*(drop|reject|block|ips|nfq|af-packet).*" /etc/suricata /etc/snort /etc/zeek /var/ossec/etc 2>/dev/null || \
+       grep_any "^[^#].*(SecRule|ModSecurity).*\\b(deny|block|drop)\\b" /etc/nginx /etc/apache2 /etc/httpd /etc/modsecurity 2>/dev/null; then
         check_pass "$code" "Обнаружены признаки автоматического реагирования/блокирования"
     else
         check_fail "$code" "Не обнаружены признаки автоматического реагирования на события"
@@ -438,10 +514,19 @@ check_av_updates() {
 
 check_av_scheduled_scan() {
     local code="$1"
-    if grep_any "clamscan|clamdscan|freshclam|kesl-control|drweb-ctl" /etc/cron.d /etc/crontab /var/spool/cron /etc/systemd/system 2>/dev/null; then
+    if grep_any "clamscan|clamdscan|kesl-control|drweb-ctl" /etc/cron.d /etc/crontab /var/spool/cron /etc/systemd/system /lib/systemd/system /usr/lib/systemd/system 2>/dev/null || (systemctl_available && systemctl list-timers --all 2>/dev/null | grep -qiE "clam|virus|av|kesl|drweb"); then
         check_pass "$code" "Обнаружены задания регулярной антивирусной проверки"
     else
         check_fail "$code" "Не обнаружены задания регулярной антивирусной проверки"
+    fi
+}
+
+check_av_on_access() {
+    local code="$1"
+    if service_active clamonacc clamav-clamonacc drweb-spider drweb-filecheck kesl-supervisor kesl || grep_any "ScanOnAccess[[:space:]]+yes|OnAccessIncludePath|OnAccessPrevention[[:space:]]+yes|fanotify|real.?time|on.?access" /etc/clamav /etc/kaspersky /etc/opt/kaspersky /etc/drweb /etc/opt/drweb.com 2>/dev/null; then
+        check_pass "$code" "Обнаружены признаки проверки файлов в режиме, близком к реальному времени"
+    else
+        check_fail "$code" "Не обнаружена on-access/real-time проверка объектов из внешних источников"
     fi
 }
 
@@ -460,6 +545,33 @@ check_ids_rules_logs() {
         check_pass "$code" "Обнаружены правила или журналы IDS/IPS"
     else
         check_fail "$code" "Не обнаружены правила или журналы IDS/IPS"
+    fi
+}
+
+check_ids_traffic_source() {
+    local code="$1"
+    if grep_any "af-packet|pcap|pfring|netmap|dpdk|copy-mode|SPAN|mirror|tap" /etc/suricata /etc/snort /etc/zeek /opt/zeek/etc 2>/dev/null; then
+        check_pass "$code" "Обнаружена настройка источника сетевого трафика для IDS/IPS"
+    else
+        check_skip "$code" "Получение копии сетевого трафика для IDS проверяется по сетевой схеме/SPAN/TAP и конфигурации сенсоров"
+    fi
+}
+
+check_ids_rule_updates() {
+    local code="$1"
+    if grep_any "suricata-update|pulledpork|oinkmaster|rule.?update|emerging.?threats|ETOPEN|snort.*rules|wazuh.*ruleset" /etc/cron.d /etc/crontab /var/spool/cron /etc/systemd/system /lib/systemd/system /usr/lib/systemd/system /etc/suricata /etc/snort /var/ossec/etc 2>/dev/null || (systemctl_available && systemctl list-timers --all 2>/dev/null | grep -qiE "suricata|snort|rule|wazuh"); then
+        check_pass "$code" "Обнаружены признаки автоматического обновления правил/индикаторов IDS"
+    else
+        check_fail "$code" "Не обнаружено автоматическое обновление баз решающих правил и индикаторов атак"
+    fi
+}
+
+check_ids_custom_rules() {
+    local code="$1"
+    if grep_any "local.rules|site.rules|custom.rules|/etc/suricata/rules/local|/etc/snort/rules/local|user.rules" /etc/suricata /etc/snort /var/ossec/etc 2>/dev/null || file_any /etc/suricata/rules/local.rules /etc/snort/rules/local.rules /var/ossec/etc/rules/local_rules.xml; then
+        check_pass "$code" "Обнаружены локальные/специфичные решающие правила IDS"
+    else
+        check_fail "$code" "Не обнаружены локальные правила для атак, специфичных для информационной системы"
     fi
 }
 
@@ -606,6 +718,20 @@ check_network_segmentation() {
     fi
 }
 
+check_segmentation_documentation() {
+    local code="$1"
+    check_skip "$code" "Схема сегментации, перечень сегментов и ежегодная проверка корректности подтверждаются эксплуатационной документацией"
+}
+
+check_microsegmentation() {
+    local code="$1"
+    if grep_any "micro.?segment|networkpolicy|calico|cilium|ovn|openvswitch|security.?group|isolate|isolation" /etc/kubernetes /etc/cni /etc/NetworkManager /etc/netplan /etc/openvswitch /etc/libvirt /etc/docker /etc/containerd /etc/nftables.conf /etc/firewalld 2>/dev/null || (have_cmd nft && nft list ruleset 2>/dev/null | grep -qiE "ct mark|meta mark|iifname.*oifname|ip saddr.*ip daddr"); then
+        check_pass "$code" "Обнаружены признаки микросегментации или изолирующих политик внутри сегментов"
+    else
+        check_fail "$code" "Не обнаружены признаки микросегментации, требуемой усилением МСЭ.1"
+    fi
+}
+
 check_dmz() {
     local code="$1"
     if grep_any "dmz" /etc/firewalld /etc/nftables.conf /etc/iptables /etc/shorewall /etc/ufw 2>/dev/null || (have_cmd firewall-cmd && firewall-cmd --get-active-zones 2>/dev/null | grep -qi dmz); then
@@ -662,10 +788,10 @@ check_load_balancing() {
 
 check_dns_rate_limit() {
     local code="$1"
-    if grep_any "rate-limit|responses-per-second|rlimit|fetches-per-server" /etc/bind /etc/named /etc/unbound /etc/knot /etc/powerdns 2>/dev/null; then
+    if grep_any "rate-limit[[:space:]]*\\{|responses-per-second[[:space:]]+[1-9][0-9]*|ip-ratelimit|ratelimit|RRL|response-rate-limiting|qps-limit|fetches-per-server[[:space:]]+[1-9][0-9]*" /etc/bind /etc/named /etc/unbound /etc/knot /etc/powerdns 2>/dev/null; then
         check_pass "$code" "Обнаружены ограничения скорости DNS-ответов"
     else
-        check_skip "$code" "DNS-сервер или его ограничения скорости не обнаружены"
+        check_fail "$code" "Не обнаружены корректные ограничения скорости DNS-ответов"
     fi
 }
 
@@ -832,15 +958,15 @@ check_zbd4() { check_zbd_common || return; check_integrity_control "$MEASURE_COD
 check_zbd5() { check_zbd_common || return; if grep_any "tx_power|country_code|ieee80211d" /etc/hostapd /etc/NetworkManager/system-connections 2>/dev/null; then check_pass "$MEASURE_CODE.1" "Обнаружены параметры ограничения радиосигнала/регуляторного домена"; else check_fail "$MEASURE_CODE.1" "Не обнаружены параметры ограничения уровня сигнала"; fi; }
 check_zbd6() { check_zbd_common || return; check_wireless_logs "$MEASURE_CODE.1"; check_siem_forwarding "$MEASURE_CODE.2"; }
 
-check_avz1() { check_av_installed "$MEASURE_CODE.1"; check_av_updates "$MEASURE_CODE.2"; check_av_scheduled_scan "$MEASURE_CODE.3"; }
-check_avz2() { has_mail_stack || { check_na "$MEASURE_CODE" "Почтовый сервер не обнаружен"; return; }; check_av_installed "$MEASURE_CODE.1"; if grep_any "clamav|clamd|amavis|milter|content_filter|virus" /etc/postfix /etc/exim /etc/dovecot /etc/amavis 2>/dev/null; then check_pass "$MEASURE_CODE.2" "Обнаружена интеграция почты с антивирусной проверкой"; else check_fail "$MEASURE_CODE.2" "Не обнаружена интеграция почты с антивирусной проверкой"; fi; }
+check_avz1() { check_av_installed "$MEASURE_CODE.1"; check_av_updates "$MEASURE_CODE.2"; check_av_scheduled_scan "$MEASURE_CODE.3"; check_av_on_access "$MEASURE_CODE.4"; check_skip "$MEASURE_CODE.5" "Перечень устройств, порядок реагирования и проверка после обновления баз подтверждаются эксплуатационной документацией"; }
+check_avz2() { has_mail_stack || { check_na "$MEASURE_CODE" "Почтовый сервер не обнаружен"; return; }; check_av_installed "$MEASURE_CODE.1"; if grep_any "clamav|clamd|amavis|rspamd.*antivirus|milter.*(clam|av|virus)|virus" /etc/postfix /etc/exim /etc/dovecot /etc/amavis /etc/rspamd 2>/dev/null; then check_pass "$MEASURE_CODE.2" "Обнаружена интеграция почты с антивирусной проверкой"; else check_fail "$MEASURE_CODE.2" "Не обнаружена интеграция почты с антивирусной проверкой"; fi; }
 check_avz3() { check_av_installed "$MEASURE_CODE.1"; if service_active squid c-icap havp privoxy || grep_any "icap|clamav|virus|av_" /etc/squid /etc/c-icap /etc/nginx /etc/haproxy 2>/dev/null; then check_pass "$MEASURE_CODE.2" "Обнаружена антивирусная проверка сетевого трафика/ICAP"; else check_fail "$MEASURE_CODE.2" "Не обнаружена антивирусная проверка сетевого трафика"; fi; }
 check_avz4() { if service_active cuckoo cape sandbox detonator || file_any /opt/cuckoo /opt/cape /etc/cuckoo; then check_pass "$MEASURE_CODE.1" "Обнаружена среда предварительного анализа файлов"; else check_skip "$MEASURE_CODE.1" "Замкнутая среда предварительного анализа файлов обычно реализуется отдельной песочницей/процессом"; fi; }
 
-check_sov1() { check_ids_installed "$MEASURE_CODE.1"; check_ids_rules_logs "$MEASURE_CODE.2"; check_siem_forwarding "$MEASURE_CODE.3"; if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_fail2ban_or_reaction "$MEASURE_CODE.4"; else skip_enhancement "$MEASURE_CODE.4"; fi; }
-check_sov2() { check_ids_installed "$MEASURE_CODE.1"; check_auditd "$MEASURE_CODE.2"; check_siem_forwarding "$MEASURE_CODE.3"; if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_fail2ban_or_reaction "$MEASURE_CODE.4"; else skip_enhancement "$MEASURE_CODE.4"; fi; }
+check_sov1() { check_ids_installed "$MEASURE_CODE.1"; check_ids_traffic_source "$MEASURE_CODE.2"; check_ids_rules_logs "$MEASURE_CODE.3"; check_fail2ban_or_reaction "$MEASURE_CODE.4"; check_ids_rule_updates "$MEASURE_CODE.5"; if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_ids_custom_rules "$MEASURE_CODE.6"; else skip_enhancement "$MEASURE_CODE.6"; fi; check_skip "$MEASURE_CODE.7" "Прикладной уровень, хранение фрагментов трафика, ретроанализ, песочница и репутационные базы относятся к усилениям 2-10 и проверяются по документации/конфигурации средств"; }
+check_sov2() { check_ids_installed "$MEASURE_CODE.1"; check_network_segmentation "$MEASURE_CODE.2"; check_ids_rules_logs "$MEASURE_CODE.3"; check_ids_rule_updates "$MEASURE_CODE.4"; check_fail2ban_or_reaction "$MEASURE_CODE.5"; check_skip "$MEASURE_CODE.6" "Централизованное администрирование IDS в сегментах подтверждается эксплуатационной документацией и консолью управления"; }
 
-check_mse1() { check_network_segmentation "$MEASURE_CODE.1"; check_firewall_active "$MEASURE_CODE.2"; check_firewall_logging "$MEASURE_CODE.3"; }
+check_mse1() { check_network_segmentation "$MEASURE_CODE.1"; check_firewall_active "$MEASURE_CODE.2"; check_firewall_logging "$MEASURE_CODE.3"; check_segmentation_documentation "$MEASURE_CODE.4"; if fstek_enhancement_enabled "$MEASURE_CODE" "1"; then check_microsegmentation "$MEASURE_CODE.5"; else skip_enhancement "$MEASURE_CODE.5"; fi; }
 check_mse2() { check_dmz "$MEASURE_CODE.1"; check_firewall_active "$MEASURE_CODE.2"; check_network_segmentation "$MEASURE_CODE.3"; }
 check_mse3() { check_firewall_active "$MEASURE_CODE.1"; check_open_listeners "$MEASURE_CODE.2"; check_firewall_logging "$MEASURE_CODE.3"; }
 check_mse4() { check_nat_masking "$MEASURE_CODE.1"; check_skip "$MEASURE_CODE.2" "Полнота маскирования топологии проверяется сетевой схемой и внешним сканированием"; }

@@ -8,7 +8,7 @@ cd "$SCRIPT_DIR" || exit 2
 ENHANCE_ARGS=()
 if [ -n "$FSTEK_SECURITY_CLASS" ]; then
     ENHANCE_ARGS=(--class "$FSTEK_SECURITY_CLASS")
-    echo ">>> Режим проверки с учетом требований к усилению для класса $FSTEK_SECURITY_CLASS включен."
+    echo ">>> Режим проверки базового набора мер и усилений для класса $FSTEK_SECURITY_CLASS включен."
 elif $WITH_ENHANCEMENTS; then
     ENHANCE_ARGS=(-e)
     echo ">>> Режим проверки с учетом всех требований к усилению включен."
@@ -31,11 +31,16 @@ for script in check_*.sh; do
     [[ "$script" == "check_all.sh" ]] && continue
     [[ ! -x "$script" ]] && chmod +x "$script" 2>/dev/null
 
-    measure_name="${script#check_}"
-    measure_name="${measure_name%.sh}"
-    measure_prefix="${measure_name%%[0-9]*}"
-    measure_number="${measure_name#$measure_prefix}"
-    MEASURE_CODE="$(printf '%s.%s' "$(printf '%s' "$measure_prefix" | tr '[:lower:]' '[:upper:]')" "$measure_number")"
+    MEASURE_CODE="$(fstek_measure_code_from_script "$script")" || {
+        echo -e "\n>>> Пропуск модуля: не удалось определить код меры для $script"
+        continue
+    }
+
+    if [ -n "$FSTEK_SECURITY_CLASS" ] && ! fstek_measure_enabled "$MEASURE_CODE" "$FSTEK_SECURITY_CLASS"; then
+        echo -e "\n>>> Пропуск модуля: $MEASURE_CODE ($script) не входит в базовый набор для класса $FSTEK_SECURITY_CLASS."
+        continue
+    fi
+
     echo -e "\n>>> Запуск модуля: $MEASURE_CODE ($script)"
     OUTPUT=$(FSTEK_COLOR=never bash "$script" "${ENHANCE_ARGS[@]}")
     EXIT_CODE=$?

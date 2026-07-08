@@ -1,0 +1,4 @@
+interface:
+  display_name: "FSTEK Methodology"
+  short_description: "Use the bundled FSTEK 2026 methodology when editing checks."
+  default_prompt: "Use the FSTEK methodology skill to verify and update repository checks against the bundled 2026 document."

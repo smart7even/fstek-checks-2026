@@ -8,21 +8,18 @@ Bash-комплект для практической автоматизиров
 
 Структура проекта:
 
-- основной запускатель: `run.sh`;
-- совместимый общий запускатель: `check_all` и `check_all.sh`;
-- новый audit-engine каркас: `fstek_audit/`;
+- основной запускатель: `check_all.sh`;
+- audit-engine: `fstek_audit/`;
 - режим усилений по классу защищенности: `--class K1|K2|K3`;
-- совместимый режим всех усилений: `--with-enhancements` или `-e`;
+- режим всех усилений: `--with-enhancements` или `-e`;
 - скрипты только читают состояние ОС и конфигурационные файлы.
 
 ## Audit-engine layout
 
-Репозиторий начал миграцию к более явной структуре `fstek_audit/`:
-
 ```text
+check_all.sh
 fstek_audit/
 ├── run.sh
-├── check_all.sh
 ├── core/
 ├── adapters/
 ├── checks/
@@ -32,26 +29,19 @@ fstek_audit/
 └── docs/
 ```
 
-На этом этапе root-level `run.sh`, `check_all.sh` и `check_all` остаются
-совместимыми entrypoint-ами. `lib_fstek.sh` сохранен как compatibility loader
-и подключает новые модули из `fstek_audit/core/`.
+Общие helper-функции живут в `fstek_audit/core/`. Реализации мер — в
+`fstek_audit/checks/<GROUP>/<CODE>.sh`. Единый реестр мер:
+`fstek_audit/checks/manifest.tsv`.
 
-Документы по новой структуре:
+Документы по структуре:
 
 - `docs/architecture.md`;
 - `docs/statuses.md`;
 - `docs/manual_controls.md`.
 
-Канонические реализации мер живут в `checks/<GROUP>/<CODE>.sh`
-(`checks` указывает на `fstek_audit/checks`). Для одиночной меры используйте
-`run.sh --measure <CODE>`.
-`checks/manifest.tsv` является единым источником для списка реализованных мер,
-их файлов, entrypoint-функций, классов, названий и компонентов. `run.sh`,
-`check_all.sh` и `check_all` используют этот manifest-driven registry для
-фильтров `--list`, `--measure`, `--section` и `--class`.
-
-Следующие шаги миграции: постепенно уменьшать legacy-совместимость без
-изменения смысла проверок, статусов и CLI.
+Для одиночной меры используйте `check_all.sh --measure <CODE>`.
+Manifest-driven registry поддерживает фильтры `--list`, `--measure`, `--section`
+и `--class`.
 
 ## Поддерживаемые ОС
 
@@ -66,29 +56,28 @@ fstek_audit/
 
 ```bash
 cd /path/to/fstek-checks-2026
-sudo ./check_all
-sudo ./run.sh --list
-sudo ./run.sh --class K1
-sudo ./run.sh --section IAF
-sudo ./run.sh --measure ИАФ.3
-sudo ./check_all --class K1
-sudo ./check_all --class K2
-sudo ./check_all --class K3
-sudo ./check_all --with-enhancements
+sudo ./check_all.sh
+sudo ./check_all.sh --list
+sudo ./check_all.sh --class K1
+sudo ./check_all.sh --section IAF
+sudo ./check_all.sh --measure ИАФ.3
+sudo ./check_all.sh --class K2
+sudo ./check_all.sh --class K3
+sudo ./check_all.sh --with-enhancements
 ```
 
 Одиночная проверка:
 
 ```bash
-sudo ./run.sh --measure ЗКС.1
-sudo ./run.sh --measure ЗКС.1 --class K2
-sudo ./run.sh --measure ЗКС.1 --with-enhancements
+sudo ./check_all.sh --measure ЗКС.1
+sudo ./check_all.sh --measure ЗКС.1 --class K2
+sudo ./check_all.sh --measure ЗКС.1 --with-enhancements
 ```
 
 Класс можно указать как `--class K1`, `--class=K1`, `--security-class K1`, `-c K1` или коротко `--k1`/`--k2`/`--k3`.
 Кириллическая `К` также принимается.
 
-При запуске `check_all` с `--class` сначала выполняется фильтрация мер: запускаются только модули, у которых в приложении N 2 для выбранного класса указан знак `+`. Внутри выбранных модулей выполняются только те усиления, которые указаны для этого класса цифрами или буквами в таблицах `Реализация в информационной системе` методического документа. Классы не суммируются: `K1` означает только колонку `K1`, а не `K1 + K2 + K3`.
+При запуске `check_all.sh` с `--class` сначала выполняется фильтрация мер: запускаются только модули, у которых в приложении N 2 для выбранного класса указан знак `+`. Внутри выбранных модулей выполняются только те усиления, которые указаны для этого класса цифрами или буквами в таблицах `Реализация в информационной системе` методического документа. Классы не суммируются: `K1` означает только колонку `K1`, а не `K1 + K2 + K3`.
 
 Старый флаг `--with-enhancements` оставлен для совместимости и включает все реализованные проверки усилений без фильтрации мер и усилений по классу.
 
@@ -107,7 +96,7 @@ sudo ./run.sh --measure ЗКС.1 --with-enhancements
 
 В интерактивном терминале статусы подсвечиваются цветом: `PASS` зеленым, `FAIL` красным, `SKIP` желтым. Цвет можно отключить через `NO_COLOR=1` или `FSTEK_COLOR=never`, а принудительно включить через `FSTEK_COLOR=always`.
 
-Итог `check_all` выводит:
+Итог `check_all.sh` выводит:
 
 - общий результат `ОК`/`НЕ ОК`;
 - число выполненных технических проверок;
@@ -191,6 +180,6 @@ bash tests/registry_consistency.sh
 
 `tests/syntax.sh` выполняет `bash -n` для всех shell-скриптов. Smoke-тест
 проверяет полноту class mapping, запускает все меры из manifest через
-`run.sh --measure <CODE> --class K3` и `check_all.sh --class K1/K2/K3`.
+`check_all.sh --measure <CODE> --class K3` и `check_all.sh --class K1/K2/K3`.
 `tests/registry_consistency.sh` проверяет, что manifest и measure files
 согласованы. Тесты безопасны и только читают локальное состояние.

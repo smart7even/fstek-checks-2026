@@ -32,7 +32,7 @@ Use that skill for recurring FSTEK methodology work in this repository.
 
 ## Methodology Rules
 
-When changing measure files under `fstek_audit/checks/`, `check_all.sh`, `lib_fstek.sh`, README coverage
+When changing measure files under `fstek_audit/checks/`, `check_all.sh`, `fstek_audit/core/`, README coverage
 notes, class/enhancement mappings, or anything that interprets a measure:
 
 - Consult the bundled PDF first.
@@ -105,7 +105,7 @@ Preferred output format:
 
 ## Implementation Style
 
-- Put reusable helper functions in `lib_fstek.sh`.
+- Put reusable helper functions in `fstek_audit/core/`.
 - Keep thin wrapper scripts as wrappers that call `init_measure`,
   `check_<measure>`, and `finish_measure`.
 - Avoid duplicated `check_pass`, `check_fail`, `check_skip`, or `check_info`
@@ -122,7 +122,7 @@ Preferred output format:
 
 ## Command-Line Compatibility
 
-- Keep `check_all.sh --class K1/K2/K3` behavior consistent with `run.sh`.
+- Keep `check_all.sh --class K1/K2/K3` behavior consistent with `fstek_audit/run.sh`.
 - Preserve backwards compatibility with existing flags:
   - `--class`
   - `--security-class`
@@ -138,7 +138,7 @@ Add or update smoke tests when changing checks or shared helpers. A smoke test
 such as `tests/smoke.sh` should:
 
 - Run `bash -n` on every `.sh` file.
-- Run every manifest measure via `run.sh --measure <CODE> --class K3` in a safe mode, or at least verify it starts and exits without syntax/runtime errors on a generic Linux host.
+- Run every manifest measure via `check_all.sh --measure <CODE> --class K3` in a safe mode, or at least verify it starts and exits without syntax/runtime errors on a generic Linux host.
 - Verify that every measure file defines `run_check`.
 - Verify that every implemented measure is either included in
   `fstek_measure_classes` or explicitly marked as intentionally excluded.

@@ -1,6 +1,6 @@
 ---
 name: fstek-methodology
-description: Use when working in this repository on FSTEK 2026 Linux compliance checks, check_*.sh scripts, lib_fstek.sh, measure mappings, PASS/FAIL/SKIP semantics, or any request mentioning the FSTEK methodology/document. Always consult the bundled methodology PDF before changing or judging a requirement.
+description: Use when working in this repository on FSTEK 2026 Linux compliance checks, fstek_audit measure files, fstek_audit/core helpers, measure mappings, PASS/FAIL/SKIP semantics, or any request mentioning the FSTEK methodology/document. Always consult the bundled methodology PDF before changing or judging a requirement.
 ---
 
 # FSTEK Methodology
@@ -41,7 +41,7 @@ rg -n "ИАФ\\.3|УПД\\.4|РСБ\\.1|АВЗ\\.1|СОВ\\.1|МСЭ\\.1|ЗОО\
 
 ## Local Conventions
 
-- Keep check modules named `check_<code>.sh`; common reusable checks live in `lib_fstek.sh`.
+- Keep measure files under `fstek_audit/checks/`; common reusable checks live in `fstek_audit/core/`.
 - Prefer strict checks over broad keyword matches. A generic `content_filter`, `milter`, `deny`, or service presence is not enough for `PASS` unless the configuration proves the specific methodology requirement.
 - When a requirement cannot be reliably automated, add an explicit `SKIP` line rather than silently omitting it.
 - For PDFs, use bundled Poppler first when system `pdftotext` is missing. Avoid rediscovering the PDF location outside the repository.

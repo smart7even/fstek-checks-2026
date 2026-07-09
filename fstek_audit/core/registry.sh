@@ -50,8 +50,8 @@ fstek_required_enhancements() {
 fstek_manifest_path() {
     if [ -n "${FSTEK_MANIFEST:-}" ]; then
         printf '%s\n' "$FSTEK_MANIFEST"
-    elif [ -n "${FSTEK_LIB_DIR:-}" ]; then
-        printf '%s\n' "$FSTEK_LIB_DIR/fstek_audit/checks/manifest.tsv"
+    elif [ -n "${FSTEK_AUDIT_DIR:-}" ]; then
+        printf '%s\n' "$FSTEK_AUDIT_DIR/checks/manifest.tsv"
     else
         printf '%s\n' "fstek_audit/checks/manifest.tsv"
     fi
@@ -111,39 +111,6 @@ fstek_measure_intentionally_excluded() {
 
 fstek_measure_enabled() {
     fstek_manifest_class_contains "$1" "$2"
-}
-
-fstek_measure_code_from_script() {
-    local script base prefix number code_prefix
-    script="${1##*/}"
-    base="${script#check_}"
-    base="${base%.sh}"
-    prefix="${base%%[0-9]*}"
-    number="${base#$prefix}"
-
-    case "$prefix" in
-        iaf) code_prefix="ИАФ" ;;
-        upd) code_prefix="УПД" ;;
-        rsb) code_prefix="РСБ" ;;
-        zsv) code_prefix="ЗСВ" ;;
-        zko) code_prefix="ЗКО" ;;
-        zep) code_prefix="ЗЭП" ;;
-        zvt) code_prefix="ЗВТ" ;;
-        zpi) code_prefix="ЗПИ" ;;
-        zku) code_prefix="ЗКУ" ;;
-        zmu) code_prefix="ЗМУ" ;;
-        ziv) code_prefix="ЗИВ" ;;
-        zbd) code_prefix="ЗБД" ;;
-        avz) code_prefix="АВЗ" ;;
-        sov) code_prefix="СОВ" ;;
-        mse) code_prefix="МСЭ" ;;
-        zoo) code_prefix="ЗОО" ;;
-        zks) code_prefix="ЗКС" ;;
-        *) return 1 ;;
-    esac
-
-    [ -n "$number" ] || return 1
-    printf '%s.%s' "$code_prefix" "$number"
 }
 
 fstek_enhancement_enabled() {

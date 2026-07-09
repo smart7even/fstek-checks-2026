@@ -9,8 +9,6 @@ for arg in "$@"; do
     esac
 done
 
-check_pass() { fstek_status_line "$1" "PASS" "$2"; }
-check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
 FAIL_COUNT=0
 
 # УПД.9.1 – Настройка Getty (отключение autologin)
@@ -69,9 +67,9 @@ if [ -f /etc/ssh/sshd_config ]; then
 fi
 
 if $SSH_BANNER_HIDDEN; then
-    check_pass "УПД.9.3" "SSH: раскрытие версии ОС/сервиса до аутентификации скрыто (DebianBanner/VersionAddendum)"
+    check_info "УПД.9.I1" "SSH DebianBanner/VersionAddendum скрывает часть версии; это полезный hardening, но само по себе не классифицирует УПД.9"
 else
-    check_fail "УПД.9.3" "SSH: версия ОС раскрывается до аутентификации (рекомендуется установить DebianBanner no)"
+    check_info "УПД.9.I1" "SSH DebianBanner/VersionAddendum не скрывает версию; это может раскрывать детали, но недостаточно для FAIL по УПД.9"
 fi
 
 # INFO – Блок общего hardening (перенесено из старой УПД.9.3)
@@ -80,7 +78,7 @@ fi
 if [ -f /etc/ssh/sshd_config ]; then
     PERMIT_ROOT=$(grep -E "^\s*PermitRootLogin" /etc/ssh/sshd_config | awk '{print $2}')
     PASSWORD_AUTH=$(grep -E "^\s*PasswordAuthentication" /etc/ssh/sshd_config | awk '{print $2}')
-    echo "[INFO] SSH Hardening (УПД.1/ИАФ.3): PermitRootLogin=${PERMIT_ROOT:-не задано}, PasswordAuthentication=${PASSWORD_AUTH:-не задано}"
+    check_info "УПД.9.I2" "SSH Hardening (УПД.1/ИАФ.3): PermitRootLogin=${PERMIT_ROOT:-не задано}, PasswordAuthentication=${PASSWORD_AUTH:-не задано}"
 fi
 
 # УПД.9.4 – Журналирование действий до входа
@@ -99,5 +97,5 @@ else
     check_fail "УПД.9.4" "Журналирование действий до входа не настроено"
 fi
 
-echo "=== ИТОГ МОДУЛЯ УПД.9: FAIL=$FAIL_COUNT ==="
+finish_legacy_measure "УПД.9"
 [ $FAIL_COUNT -eq 0 ] && exit 0 || exit 1

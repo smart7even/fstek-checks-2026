@@ -27,9 +27,6 @@ detect_os() {
 }
 detect_os
 
-check_pass() { fstek_status_line "$1" "PASS" "$2"; }
-check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
-check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 FAIL_COUNT=0; SKIP_COUNT=0
 
@@ -90,5 +87,5 @@ else
     skip_enhancement "ИАФ.1.5"
 fi
 
-echo "=== ИТОГ МОДУЛЯ ИАФ.1: FAIL=$FAIL_COUNT, SKIP=$SKIP_COUNT ==="
+finish_legacy_measure "ИАФ.1"
 [ $FAIL_COUNT -eq 0 ] && exit 0 || exit 1

@@ -15,9 +15,6 @@ FAIL_COUNT=0
 SKIP_COUNT=0
 
 # Унифицированные функции вывода
-check_pass() { fstek_status_line "$1" "PASS" "$2"; }
-check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
-check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 ENGINE="none"
 if command -v docker >/dev/null 2>&1 && systemctl is-active --quiet docker 2>/dev/null; then ENGINE="docker";
@@ -25,7 +22,7 @@ elif command -v podman >/dev/null 2>&1; then ENGINE="podman"; fi
 
 if [ "$ENGINE" == "none" ]; then
     check_skip "ЗКО.3.0" "Средства контейнеризации не обнаружены или не активны"
-    echo "=== ИТОГ МОДУЛЯ ЗКО.3: FAIL=$FAIL_COUNT, SKIP=$SKIP_COUNT ==="
+    finish_legacy_measure "ЗКО.3"
     exit 0
 fi
 
@@ -131,5 +128,5 @@ else
 fi
 
 # Унифицированная итоговая строка
-echo "=== ИТОГ МОДУЛЯ ЗКО.3: FAIL=$FAIL_COUNT, SKIP=$SKIP_COUNT ==="
+finish_legacy_measure "ЗКО.3"
 [ $FAIL_COUNT -eq 0 ] && exit 0 || exit 1

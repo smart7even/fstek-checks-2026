@@ -8,8 +8,6 @@ for arg in "$@"; do
     esac
 done
 
-check_pass() { fstek_status_line "$1" "PASS" "$2"; }
-check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
 FAIL_COUNT=0
 
 # ИАФ.4.1 – 802.1x в NetworkManager
@@ -23,7 +21,7 @@ fi
 if $DOT1X_FOUND; then
     check_pass "ИАФ.4.1" "Обнаружены профили NetworkManager с настройками 802.1x"
 else
-    check_fail "ИАФ.4.1" "Профили 802.1x в NetworkManager не найдены (возможно, используется только IP/MAC)"
+    check_info "ИАФ.4.I1" "Профили 802.1x в NetworkManager не найдены; устройство может аутентифицироваться средствами сети, сертификатами или NAC вне локальной конфигурации"
 fi
 
 # ИАФ.4.2 – TLS для машинной аутентификации (SSSD/LDAP)
@@ -39,8 +37,10 @@ fi
 
 if $TLS_AUTH; then
     check_pass "ИАФ.4.2" "Использование TLS для машинной аутентификации в каталогах настроено"
+elif [ -f /etc/sssd/sssd.conf ] || [ -f /etc/nslcd.conf ]; then
+    check_fail "ИАФ.4.2" "Локальная LDAP/SSSD-конфигурация есть, но TLS для машинной аутентификации не настроен или отключен"
 else
-    check_fail "ИАФ.4.2" "TLS для машинной аутентификации (SSSD/LDAP) не настроен или отключен"
+    check_info "ИАФ.4.I2" "Локальная LDAP/SSSD-конфигурация не обнаружена; машинная аутентификация может реализовываться внешними сетевыми средствами"
 fi
 
 # ИАФ.4.3 – Усиление (Корпоративный ЦС / Kerberos)
@@ -56,5 +56,5 @@ else
     skip_enhancement "ИАФ.4.3"
 fi
 
-echo "=== ИТОГ МОДУЛЯ ИАФ.4: FAIL=$FAIL_COUNT ==="
+finish_legacy_measure "ИАФ.4"
 [ $FAIL_COUNT -eq 0 ] && exit 0 || exit 1

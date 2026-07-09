@@ -8,8 +8,6 @@ for arg in "$@"; do
     esac
 done
 
-check_pass() { fstek_status_line "$1" "PASS" "$2"; }
-check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
 FAIL_COUNT=0
 
 get_conf_value() {
@@ -170,5 +168,5 @@ else
     skip_enhancement "ИАФ.3.6"
 fi
 
-echo "=== ИТОГ МОДУЛЯ ИАФ.3: FAIL=$FAIL_COUNT ==="
+finish_legacy_measure "ИАФ.3"
 [ $FAIL_COUNT -eq 0 ] && exit 0 || exit 1

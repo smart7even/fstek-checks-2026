@@ -15,15 +15,12 @@ FAIL_COUNT=0
 SKIP_COUNT=0
 
 # Унифицированные функции вывода
-check_pass() { fstek_status_line "$1" "PASS" "$2"; }
-check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
-check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 # --- ПРОВЕРКА НАЛИЧИЯ ПОЧТОВОГО СЕРВЕРА ---
 # Если почтовый сервер не установлен, проверка ЗЭП.5 пропускается
 if ! command -v postconf &>/dev/null && ! systemctl list-units --all | grep -qE "postfix|dovecot|exim|sendmail"; then
     check_skip "ЗЭП.5" "Почтовый сервер не обнаружен. Проверка ЗЭП.5 пропущена."
-    echo "=== ИТОГ МОДУЛЯ ЗЭП.5: FAIL=0, SKIP=1 ==="
+    finish_legacy_measure "ЗЭП.5"
     exit 0
 fi
 
@@ -76,5 +73,5 @@ else
 fi
 
 # Унифицированная итоговая строка
-echo "=== ИТОГ МОДУЛЯ ЗЭП.5: FAIL=$FAIL_COUNT, SKIP=$SKIP_COUNT ==="
+finish_legacy_measure "ЗЭП.5"
 [ $FAIL_COUNT -eq 0 ] && exit 0 || exit 1

@@ -62,6 +62,48 @@ fstek_parse_cli "$@"
 FAIL_COUNT=0
 SKIP_COUNT=0
 PASS_COUNT=0
+PASS_HIGH_COUNT=0
+PASS_MEDIUM_COUNT=0
+INFO_COUNT=0
+NA_COUNT=0
+
+FSTEK_PROFILE_LOADED=false
+
+fstek_load_profile() {
+    local profile
+    $FSTEK_PROFILE_LOADED && return 0
+    FSTEK_PROFILE_LOADED=true
+
+    for profile in ./fstek_profile.conf /etc/fstek-checks/profile.conf; do
+        [ -r "$profile" ] || continue
+        # shellcheck disable=SC1090
+        . "$profile"
+    done
+}
+
+fstek_profile_bool() {
+    local name="$1" value
+    fstek_load_profile
+    eval "value=\"\${$name:-}\""
+    case "$value" in
+        1|yes|true|on|да|истина|y|Y|YES|TRUE|ON) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+fstek_component_expected() {
+    case "$1" in
+        web) fstek_profile_bool FSTEK_EXPECT_WEB ;;
+        api) fstek_profile_bool FSTEK_EXPECT_API ;;
+        containers) fstek_profile_bool FSTEK_EXPECT_CONTAINERS ;;
+        virtualization) fstek_profile_bool FSTEK_EXPECT_VIRTUALIZATION ;;
+        mail) fstek_profile_bool FSTEK_EXPECT_MAIL ;;
+        wireless) fstek_profile_bool FSTEK_EXPECT_WIRELESS ;;
+        siem) fstek_profile_bool FSTEK_EXPECT_SIEM ;;
+        av) fstek_profile_bool FSTEK_EXPECT_AV ;;
+        *) return 1 ;;
+    esac
+}
 
 fstek_required_enhancements() {
     case "$1:$2" in
@@ -134,6 +176,23 @@ fstek_measure_classes() {
             ;;
         *)
             printf ''
+            ;;
+    esac
+}
+
+fstek_measure_intentionally_excluded() {
+    case "$1" in
+        ИАФ.2|ИАФ.4|\
+        УПД.5|УПД.6|\
+        ЗКУ.5|ЗМУ.8|\
+        АВЗ.4|\
+        МСЭ.4|МСЭ.5|\
+        ЗОО.4|\
+        ЗКС.4)
+            return 0
+            ;;
+        *)
+            return 1
             ;;
     esac
 }
@@ -226,14 +285,30 @@ fstek_status_color() {
         PASS) printf '%s' "$FSTEK_C_PASS" ;;
         FAIL) printf '%s' "$FSTEK_C_FAIL" ;;
         SKIP) printf '%s' "$FSTEK_C_SKIP" ;;
+        INFO) printf '%s' "$FSTEK_C_SKIP" ;;
+        NA) printf '%s' "$FSTEK_C_SKIP" ;;
         *) printf '' ;;
     esac
 }
 
 fstek_status_line() {
-    local code="$1" status="$2" text="$3" color
+    local code="$1" status="$2" text="$3" confidence="${4:-}" color printable
+    case "$status" in
+        PASS)
+            [ -n "$confidence" ] || confidence="HIGH"
+            case "$confidence" in
+                HIGH|MEDIUM) ;;
+                *) confidence="" ;;
+            esac
+            ;;
+        FAIL|SKIP|INFO|NA)
+            confidence=""
+            ;;
+    esac
     color="$(fstek_status_color "$status")"
-    printf '[%s] %b%s%b – %s\n' "$code" "$color" "$status" "$FSTEK_C_RESET" "$text"
+    printable="$status"
+    [ -n "$confidence" ] && printable="$status ($confidence)"
+    printf '[%s] %b%s%b – %s\n' "$code" "$color" "$printable" "$FSTEK_C_RESET" "$text"
 }
 
 fstek_colorize_statuses() {
@@ -241,7 +316,9 @@ fstek_colorize_statuses() {
         sed -E \
             -e $'s/(^|[^[:alnum:]_])(PASS)([^[:alnum:]_]|$)/\\1\033[32m\\2\033[0m\\3/g' \
             -e $'s/(^|[^[:alnum:]_])(FAIL)([^[:alnum:]_]|$)/\\1\033[31m\\2\033[0m\\3/g' \
-            -e $'s/(^|[^[:alnum:]_])(SKIP)([^[:alnum:]_]|$)/\\1\033[33m\\2\033[0m\\3/g'
+            -e $'s/(^|[^[:alnum:]_])(SKIP)([^[:alnum:]_]|$)/\\1\033[33m\\2\033[0m\\3/g' \
+            -e $'s/(^|[^[:alnum:]_])(INFO)([^[:alnum:]_]|$)/\\1\033[33m\\2\033[0m\\3/g' \
+            -e $'s/(^|[^[:alnum:]_])(NA)([^[:alnum:]_]|$)/\\1\033[33m\\2\033[0m\\3/g'
     else
         cat
     fi
@@ -249,10 +326,90 @@ fstek_colorize_statuses() {
 
 fstek_init_colors
 
-check_pass() { fstek_status_line "$1" "PASS" "$2"; ((PASS_COUNT++)); return 0; }
-check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); return 0; }
-check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕВОЗМОЖНО ПРОВЕРИТЬ АВТОМАТИЧЕСКИ)"; ((SKIP_COUNT++)); return 0; }
-check_na() { fstek_status_line "$1" "SKIP" "$2 (НЕПРИМЕНИМО)"; ((SKIP_COUNT++)); return 0; }
+check_pass() {
+    local code="$1" confidence="HIGH" text
+    shift
+    if [ "$#" -ge 2 ]; then
+        case "$1" in
+            HIGH|MEDIUM) confidence="$1"; shift ;;
+            [A-Z][A-Z]*) confidence="INFO"; shift ;;
+        esac
+    fi
+    text="$*"
+    case "$confidence" in
+        MEDIUM)
+            fstek_status_line "$code" "PASS" "$text" "MEDIUM"
+            ((PASS_COUNT++))
+            ((PASS_MEDIUM_COUNT++))
+            ;;
+        INFO)
+            check_info "$code" "$text"
+            ;;
+        *)
+            fstek_status_line "$code" "PASS" "$text" "HIGH"
+            ((PASS_COUNT++))
+            ((PASS_HIGH_COUNT++))
+            ;;
+    esac
+    return 0
+}
+
+check_pass_high() { local code="$1"; shift; check_pass "$code" HIGH "$*"; }
+check_pass_medium() { local code="$1"; shift; check_pass "$code" MEDIUM "$*"; }
+
+check_fail() {
+    local code="$1" text
+    shift
+    if [ "$#" -ge 2 ]; then
+        case "$1" in
+            HIGH|MEDIUM) shift ;;
+            [A-Z][A-Z]*)
+                shift
+                check_info "$code" "$*"
+                return 0
+                ;;
+        esac
+    fi
+    text="$*"
+    fstek_status_line "$code" "FAIL" "$text"
+    ((FAIL_COUNT++))
+    return 0
+}
+
+check_skip() {
+    local code="$1" text="$2"
+    case "$text" in
+        *"Средства виртуализации"*"не обнаружены"*)
+            if fstek_component_expected virtualization; then
+                check_fail "$code" "Профиль требует стек виртуализации, но libvirt/virsh не обнаружены"
+            else
+                check_na "$code" "Стек виртуализации libvirt/virsh не обнаружен"
+            fi
+            return 0
+            ;;
+        *"Средства контейнеризации"*"не обнаружены"*)
+            if fstek_component_expected containers; then
+                check_fail "$code" "Профиль требует контейнерный стек, но Docker/Podman/container runtime не обнаружены"
+            else
+                check_na "$code" "Контейнерный стек Docker/Podman/container runtime не обнаружен"
+            fi
+            return 0
+            ;;
+        *"Почтовый сервер не обнаружен"*)
+            if fstek_component_expected mail; then
+                check_fail "$code" "Профиль требует почтовый стек, но Postfix/Dovecot/Exim/Sendmail не обнаружены"
+            else
+                check_na "$code" "Почтовый стек Postfix/Dovecot/Exim/Sendmail не обнаружен"
+            fi
+            return 0
+            ;;
+    esac
+    fstek_status_line "$code" "SKIP" "$text"
+    ((SKIP_COUNT++))
+    return 0
+}
+check_na() { fstek_status_line "$1" "NA" "$2"; ((NA_COUNT++)); return 0; }
+check_info() { fstek_status_line "$1" "INFO" "$2"; ((INFO_COUNT++)); return 0; }
 skip_enhancement() {
     local reason="проверка усилений отключена"
     [ -n "$FSTEK_SECURITY_CLASS" ] && reason="усиление не требуется для класса $FSTEK_SECURITY_CLASS"
@@ -270,7 +427,13 @@ init_measure() {
 }
 
 finish_measure() {
-    printf '=== ИТОГ МОДУЛЯ %s: PASS=%s, FAIL=%s, SKIP=%s ===\n' "$MEASURE_CODE" "$PASS_COUNT" "$FAIL_COUNT" "$SKIP_COUNT" | fstek_colorize_statuses
+    printf '=== ИТОГ МОДУЛЯ %s: PASS=%s, PASS_HIGH=%s, PASS_MEDIUM=%s, FAIL=%s, SKIP=%s, INFO=%s, NA=%s ===\n' "$MEASURE_CODE" "$PASS_COUNT" "$PASS_HIGH_COUNT" "$PASS_MEDIUM_COUNT" "$FAIL_COUNT" "$SKIP_COUNT" "$INFO_COUNT" "$NA_COUNT" | fstek_colorize_statuses
+    [ "$FAIL_COUNT" -eq 0 ] && exit 0 || exit 1
+}
+
+finish_legacy_measure() {
+    local code="$1"
+    printf '=== ИТОГ МОДУЛЯ %s: PASS=%s, PASS_HIGH=%s, PASS_MEDIUM=%s, FAIL=%s, SKIP=%s, INFO=%s, NA=%s ===\n' "$code" "$PASS_COUNT" "$PASS_HIGH_COUNT" "$PASS_MEDIUM_COUNT" "$FAIL_COUNT" "$SKIP_COUNT" "$INFO_COUNT" "$NA_COUNT" | fstek_colorize_statuses
     [ "$FAIL_COUNT" -eq 0 ] && exit 0 || exit 1
 }
 
@@ -351,19 +514,19 @@ file_any() {
 }
 
 has_web_stack() {
-    have_cmd nginx || have_cmd apache2 || have_cmd httpd || service_known nginx apache2 httpd || file_any /etc/nginx /etc/apache2 /etc/httpd
+    fstek_component_expected web || have_cmd nginx || have_cmd apache2 || have_cmd httpd || service_known nginx apache2 httpd || file_any /etc/nginx /etc/apache2 /etc/httpd
 }
 
 has_mail_stack() {
-    have_cmd postconf || have_cmd exim || have_cmd sendmail || service_known postfix exim dovecot sendmail || file_any /etc/postfix /etc/exim /etc/dovecot
+    fstek_component_expected mail || have_cmd postconf || have_cmd exim || have_cmd sendmail || service_known postfix exim dovecot sendmail || file_any /etc/postfix /etc/exim /etc/dovecot
 }
 
 has_api_stack() {
-    has_web_stack || service_known kong tyk-gateway envoy traefik haproxy || file_any /etc/kong /etc/tyk /etc/envoy /etc/traefik /etc/haproxy
+    fstek_component_expected api || has_web_stack || service_known kong tyk-gateway envoy traefik haproxy || file_any /etc/kong /etc/tyk /etc/envoy /etc/traefik /etc/haproxy
 }
 
 has_wireless_stack() {
-    file_any /etc/hostapd /etc/wpa_supplicant || service_known hostapd wpa_supplicant NetworkManager || have_cmd iw || have_cmd nmcli
+    fstek_component_expected wireless || file_any /etc/hostapd /etc/wpa_supplicant || service_known hostapd wpa_supplicant NetworkManager || have_cmd iw || have_cmd nmcli
 }
 
 has_iot_stack() {
@@ -381,6 +544,32 @@ check_firewall_active() {
     else
         check_fail "$code" "Не обнаружены активные правила межсетевого экранирования"
     fi
+}
+
+sshd_config_files() {
+    local f
+    [ -r /etc/ssh/sshd_config ] && printf '%s\n' /etc/ssh/sshd_config
+    if [ -d /etc/ssh/sshd_config.d ]; then
+        find /etc/ssh/sshd_config.d -maxdepth 1 -type f -name '*.conf' -print 2>/dev/null | sort
+    fi
+}
+
+sshd_config_grep() {
+    local pattern="$1" file found=1
+    while IFS= read -r file; do
+        [ -r "$file" ] || continue
+        if grep -Eiq "$pattern" "$file" 2>/dev/null; then
+            printf '%s\n' "$file"
+            found=0
+        fi
+    done <<EOF
+$(sshd_config_files)
+EOF
+    return "$found"
+}
+
+sshd_config_present() {
+    sshd_config_files | grep -q .
 }
 
 check_firewall_logging() {
@@ -458,7 +647,7 @@ check_web_logs() {
 check_waf() {
     local code="$1"
     if service_active nginx apache2 httpd openresty && grep_any "modsecurity|security2_module|ModSecurityEnabled|SecRule|naxsi|coraza|app_protect|waf" /etc/nginx /etc/apache2 /etc/httpd /etc/kong /etc/traefik /etc/envoy 2>/dev/null; then
-        check_pass "$code" "Обнаружены признаки WAF/фильтрации веб-трафика"
+        check_pass_medium "$code" "Обнаружены признаки WAF/фильтрации веб-трафика"
     else
         check_fail "$code" "Не обнаружены признаки WAF/фильтрации веб-трафика"
     fi
@@ -477,6 +666,8 @@ check_siem_forwarding() {
     local code="$1"
     if grep_any "@@|omfwd|target=|action\\(type=\"omfwd\"|remote" /etc/rsyslog.conf /etc/rsyslog.d /etc/syslog-ng 2>/dev/null || service_active wazuh-agent ossec filebeat auditbeat fluent-bit vector; then
         check_pass "$code" "Обнаружена передача событий в централизованный сбор/мониторинг"
+    elif fstek_component_expected siem; then
+        check_fail "$code" "Профиль требует SIEM/централизованную отправку, но локальная конфигурация forwarding/агент не обнаружены"
     else
         check_fail "$code" "Не обнаружена централизованная передача событий безопасности"
     fi
@@ -488,7 +679,7 @@ check_fail2ban_or_reaction() {
        grep_any "^[^#].*(banaction|action.*ban|decision|remediation)" /etc/fail2ban /etc/crowdsec 2>/dev/null || \
        grep_any "^[^#].*(drop|reject|block|ips|nfq|af-packet).*" /etc/suricata /etc/snort /etc/zeek /var/ossec/etc 2>/dev/null || \
        grep_any "^[^#].*(SecRule|ModSecurity).*\\b(deny|block|drop)\\b" /etc/nginx /etc/apache2 /etc/httpd /etc/modsecurity 2>/dev/null; then
-        check_pass "$code" "Обнаружены признаки автоматического реагирования/блокирования"
+        check_pass_medium "$code" "Обнаружены признаки автоматического реагирования/блокирования"
     else
         check_fail "$code" "Не обнаружены признаки автоматического реагирования на события"
     fi
@@ -496,8 +687,40 @@ check_fail2ban_or_reaction() {
 
 check_av_installed() {
     local code="$1"
+    fstek_load_profile
+    if [ -n "${FSTEK_EXPECT_AV_PRODUCT:-}" ]; then
+        case "$FSTEK_EXPECT_AV_PRODUCT" in
+            clamav|ClamAV)
+                if service_active clamav-daemon clamd freshclam || have_cmd clamscan || have_cmd clamdscan; then
+                    check_pass "$code" "Ожидаемый AV ClamAV обнаружен"
+                else
+                    check_fail "$code" "Профиль требует ClamAV, но clamd/freshclam/clamscan не обнаружены"
+                fi
+                return 0
+                ;;
+            kaspersky|kesl|Kaspersky)
+                if service_active kesl kav4fs-supervisor || have_cmd kesl-control; then
+                    check_pass "$code" "Ожидаемый AV Kaspersky/KESL обнаружен"
+                else
+                    check_fail "$code" "Профиль требует Kaspersky/KESL, но служба или kesl-control не обнаружены"
+                fi
+                return 0
+                ;;
+            drweb|DrWeb|Dr.Web)
+                if service_active drwebd drweb-configd || have_cmd drweb-ctl; then
+                    check_pass "$code" "Ожидаемый AV Dr.Web обнаружен"
+                else
+                    check_fail "$code" "Профиль требует Dr.Web, но служба или drweb-ctl не обнаружены"
+                fi
+                return 0
+                ;;
+        esac
+    fi
+
     if service_active clamav-daemon clamd freshclam drwebd drweb-configd kesl kav4fs-supervisor eset cagtd || have_cmd clamscan || have_cmd clamdscan || have_cmd kesl-control || have_cmd drweb-ctl; then
         check_pass "$code" "Обнаружены установленные или активные средства антивирусной защиты"
+    elif fstek_component_expected av; then
+        check_fail "$code" "Профиль требует локальный AV, но штатные признаки AV не обнаружены"
     else
         check_fail "$code" "Не обнаружены штатные признаки антивирусной защиты"
     fi
@@ -533,7 +756,7 @@ check_av_on_access() {
 check_ids_installed() {
     local code="$1"
     if service_active suricata snort zeek wazuh-agent ossec falco auditd || have_cmd suricata || have_cmd snort || have_cmd zeek; then
-        check_pass "$code" "Обнаружены средства обнаружения/предотвращения вторжений или host-аудита"
+        check_pass_medium "$code" "Обнаружены средства обнаружения/предотвращения вторжений или host-аудита"
     else
         check_fail "$code" "Не обнаружены IDS/IPS/HIDS или auditd"
     fi
@@ -586,8 +809,10 @@ check_auditd() {
 
 check_integrity_control() {
     local code="$1"
-    if service_active aidecheck aide.timer aide tripwire afick || have_cmd aide || have_cmd tripwire || have_cmd afick || grep_any "ima_appraise|security\\.ima|security\\.evm" /proc/cmdline /etc/default/grub /boot/grub/grub.cfg 2>/dev/null; then
-        check_pass "$code" "Обнаружены средства контроля целостности (AIDE/Tripwire/IMA/EVM)"
+    if service_active aidecheck aide.timer aide tripwire afick || grep_any "ima_appraise|security\\.ima|security\\.evm" /proc/cmdline /etc/default/grub /boot/grub/grub.cfg 2>/dev/null || file_any /etc/aide/aide.conf /etc/tripwire/twcfg.txt /etc/afick.conf; then
+        check_pass_medium "$code" "Обнаружены средства контроля целостности (AIDE/Tripwire/IMA/EVM)"
+    elif have_cmd aide || have_cmd tripwire || have_cmd afick; then
+        check_info "$code" "Утилита контроля целостности установлена, но активная служба или конфигурация не подтверждены"
     else
         check_fail "$code" "Не обнаружены средства контроля целостности"
     fi
@@ -613,10 +838,16 @@ check_pam_auth() {
 
 check_ssh_hardening() {
     local code="$1"
-    if [ -f /etc/ssh/sshd_config ] && grep -Eiq "^[[:space:]]*PermitRootLogin[[:space:]]+(no|prohibit-password)" /etc/ssh/sshd_config; then
-        check_pass "$code" "SSH root-вход ограничен"
+    local files
+    if ! sshd_config_present; then
+        check_fail "$code" "Файлы /etc/ssh/sshd_config и /etc/ssh/sshd_config.d/*.conf не найдены"
+        return 0
+    fi
+    files="$(sshd_config_grep "^[[:space:]]*PermitRootLogin[[:space:]]+(no|prohibit-password)([[:space:]]|$)")"
+    if [ -n "$files" ]; then
+        check_pass "$code" "SSH root-вход ограничен: $(printf '%s' "$files" | paste -sd, -)"
     else
-        check_fail "$code" "Не подтвержден запрет или ограничение SSH root-входа"
+        check_fail "$code" "Не подтвержден запрет или ограничение SSH root-входа в /etc/ssh/sshd_config или /etc/ssh/sshd_config.d/*.conf"
     fi
 }
 
@@ -632,7 +863,7 @@ check_sudo_restricted() {
 check_process_monitoring() {
     local code="$1"
     if service_active sysstat atop psacct acct auditd node_exporter zabbix-agent telegraf collectd; then
-        check_pass "$code" "Обнаружен мониторинг процессов или состояния узла"
+        check_pass_medium "$code" "Обнаружен мониторинг процессов или состояния узла"
     else
         check_fail "$code" "Не обнаружены службы мониторинга процессов/состояния"
     fi
@@ -665,7 +896,7 @@ check_openapi_spec() {
 check_api_gateway() {
     local code="$1"
     if service_active kong tyk-gateway envoy traefik haproxy nginx || file_any /etc/kong /etc/tyk /etc/envoy /etc/traefik; then
-        check_pass "$code" "Обнаружен API-шлюз или reverse proxy"
+        check_pass_medium "$code" "Обнаружен API-шлюз или reverse proxy"
     else
         check_fail "$code" "Не обнаружен API-шлюз или reverse proxy"
     fi
@@ -674,7 +905,7 @@ check_api_gateway() {
 check_api_schema_validation() {
     local code="$1"
     if grep_any "schema|openapi|swagger|request-validation|validate|json_schema|grpc_json_transcoder" /etc/kong /etc/tyk /etc/envoy /etc/traefik /etc/nginx 2>/dev/null; then
-        check_pass "$code" "Обнаружены признаки проверки запросов по спецификации/схеме"
+        check_pass_medium "$code" "Обнаружены признаки проверки запросов по спецификации/схеме"
     else
         check_fail "$code" "Не обнаружены признаки проверки API-запросов по спецификации"
     fi
@@ -712,7 +943,7 @@ check_network_segmentation() {
     local if_count=0
     if have_cmd ip; then if_count=$(ip -o link show 2>/dev/null | grep -vc " lo:" || true); fi
     if [ "${if_count:-0}" -gt 1 ] || (have_cmd ip && ip -d link show 2>/dev/null | grep -qiE "vlan|vxlan|bridge") || (have_cmd nft && nft list ruleset 2>/dev/null | grep -qiE "iifname|oifname|zone"); then
-        check_pass "$code" "Обнаружены признаки сетевой сегментации (несколько интерфейсов/VLAN/правила по интерфейсам)"
+        check_pass_medium "$code" "Обнаружены признаки сетевой сегментации (несколько интерфейсов/VLAN/правила по интерфейсам)"
     else
         check_fail "$code" "Не обнаружены признаки сетевой сегментации"
     fi
@@ -726,7 +957,7 @@ check_segmentation_documentation() {
 check_microsegmentation() {
     local code="$1"
     if grep_any "micro.?segment|networkpolicy|calico|cilium|ovn|openvswitch|security.?group|isolate|isolation" /etc/kubernetes /etc/cni /etc/NetworkManager /etc/netplan /etc/openvswitch /etc/libvirt /etc/docker /etc/containerd /etc/nftables.conf /etc/firewalld 2>/dev/null || (have_cmd nft && nft list ruleset 2>/dev/null | grep -qiE "ct mark|meta mark|iifname.*oifname|ip saddr.*ip daddr"); then
-        check_pass "$code" "Обнаружены признаки микросегментации или изолирующих политик внутри сегментов"
+        check_pass_medium "$code" "Обнаружены признаки микросегментации или изолирующих политик внутри сегментов"
     else
         check_fail "$code" "Не обнаружены признаки микросегментации, требуемой усилением МСЭ.1"
     fi
@@ -735,7 +966,7 @@ check_microsegmentation() {
 check_dmz() {
     local code="$1"
     if grep_any "dmz" /etc/firewalld /etc/nftables.conf /etc/iptables /etc/shorewall /etc/ufw 2>/dev/null || (have_cmd firewall-cmd && firewall-cmd --get-active-zones 2>/dev/null | grep -qi dmz); then
-        check_pass "$code" "Обнаружена зона/правила DMZ"
+        check_pass_medium "$code" "Обнаружена зона/правила DMZ"
     else
         check_fail "$code" "Не обнаружены признаки выделенной DMZ"
     fi
@@ -753,7 +984,7 @@ check_nat_masking() {
 check_honeypot() {
     local code="$1"
     if service_active cowrie dionaea honeyd opencanary glastopf || file_any /etc/opencanaryd /opt/cowrie /opt/dionaea; then
-        check_pass "$code" "Обнаружены признаки ложных систем/honeypot"
+        check_pass_medium "$code" "Обнаружены признаки ложных систем/honeypot"
     else
         check_fail "$code" "Не обнаружены ложные системы/honeypot"
     fi
@@ -771,7 +1002,7 @@ check_syn_cookies() {
 check_monitoring_stack() {
     local code="$1"
     if service_active prometheus-node-exporter node_exporter zabbix-agent nagios-nrpe-server telegraf collectd netdata keepalived monit; then
-        check_pass "$code" "Обнаружены службы мониторинга состояния сервисов/интерфейсов"
+        check_pass_medium "$code" "Обнаружены службы мониторинга состояния сервисов/интерфейсов"
     else
         check_fail "$code" "Не обнаружены службы мониторинга состояния сервисов/интерфейсов"
     fi
@@ -780,7 +1011,7 @@ check_monitoring_stack() {
 check_load_balancing() {
     local code="$1"
     if service_active haproxy nginx keepalived envoy traefik || grep_any "upstream|balance|backend|server .*:[0-9]+|virtual_server|real_server" /etc/nginx /etc/haproxy /etc/keepalived /etc/envoy /etc/traefik 2>/dev/null; then
-        check_pass "$code" "Обнаружены признаки балансировки нагрузки"
+        check_pass_medium "$code" "Обнаружены признаки балансировки нагрузки"
     else
         check_fail "$code" "Не обнаружены признаки балансировки нагрузки"
     fi
@@ -798,7 +1029,7 @@ check_dns_rate_limit() {
 check_vpn_or_crypto() {
     local code="$1"
     if service_active openvpn strongswan ipsec wireguard wg-quick stunnel || have_cmd wg || file_any /etc/openvpn /etc/ipsec.conf /etc/wireguard /etc/stunnel; then
-        check_pass "$code" "Обнаружены VPN/криптографические средства защиты каналов"
+        check_pass_medium "$code" "Обнаружены VPN/криптографические средства защиты каналов"
     else
         check_fail "$code" "Не обнаружены VPN/криптографические средства защиты каналов"
     fi
@@ -807,7 +1038,7 @@ check_vpn_or_crypto() {
 check_egress_control() {
     local code="$1"
     if grep_any "http_access|acl|deny|allow|whitelist|blacklist|url_rewrite|ssl_bump" /etc/squid /etc/tinyproxy /etc/privoxy 2>/dev/null || (have_cmd nft && nft list ruleset 2>/dev/null | grep -qiE " dport | ip daddr | reject| drop") || (have_cmd iptables && iptables -S OUTPUT 2>/dev/null | grep -qiE "REJECT|DROP|--dport|--destination"); then
-        check_pass "$code" "Обнаружены признаки контроля исходящего доступа к внешним ресурсам"
+        check_pass_medium "$code" "Обнаружены признаки контроля исходящего доступа к внешним ресурсам"
     else
         check_fail "$code" "Не обнаружены признаки контроля исходящего доступа к внешним ресурсам"
     fi
@@ -816,7 +1047,7 @@ check_egress_control() {
 check_proxy_categories() {
     local code="$1"
     if grep_any "squidGuard|ufdbGuard|redirector|category|blacklist|whitelist|shallalist|url_rewrite_program" /etc/squid /etc/squidguard /etc/ufdbguard 2>/dev/null; then
-        check_pass "$code" "Обнаружены признаки категоризации/морфологического контроля ресурсов"
+        check_pass_medium "$code" "Обнаружены признаки категоризации/морфологического контроля ресурсов"
     else
         check_fail "$code" "Не обнаружены признаки категоризации или морфологического контроля ресурсов"
     fi
@@ -824,8 +1055,10 @@ check_proxy_categories() {
 
 check_dlp() {
     local code="$1"
-    if service_active solar-dozor infowatch searchinform zecurion deviceLock traffic-monitor squid c-icap || grep_any "dlp|icap|content.?inspection|data.?loss|casb|ssl_bump" /etc/squid /etc/c-icap /etc/icap /etc/nginx /etc/haproxy 2>/dev/null; then
-        check_pass "$code" "Обнаружены признаки DLP/ICAP/контекстной проверки исходящего трафика"
+    if service_active solar-dozor infowatch searchinform zecurion deviceLock traffic-monitor || grep_any "dlp|content.?inspection|data.?loss|casb|classification|fingerprint|watermark" /etc/squid /etc/c-icap /etc/icap /etc/nginx /etc/haproxy 2>/dev/null; then
+        check_pass_medium "$code" "Обнаружены признаки DLP/ICAP/контекстной проверки исходящего трафика"
+    elif service_active squid c-icap || grep_any "icap|ssl_bump" /etc/squid /etc/c-icap /etc/icap /etc/nginx /etc/haproxy 2>/dev/null; then
+        check_info "$code" "Обнаружены proxy/ICAP/ssl_bump признаки, но без явной DLP/контекстной политики этого недостаточно для PASS"
     else
         check_fail "$code" "Не обнаружены признаки контекстной проверки исходящего трафика"
     fi
@@ -955,7 +1188,7 @@ check_zbd1() { check_zbd_common || return; check_hostapd_secure "$MEASURE_CODE.1
 check_zbd2() { check_zbd_common || return; check_wireless_acl "$MEASURE_CODE.1"; check_firewall_active "$MEASURE_CODE.2"; }
 check_zbd3() { check_zbd_common || return; check_hostapd_secure "$MEASURE_CODE.1"; check_tls_config "$MEASURE_CODE.2"; }
 check_zbd4() { check_zbd_common || return; check_integrity_control "$MEASURE_CODE.1"; check_skip "$MEASURE_CODE.2" "Целостность прошивки точки доступа требует проверки средствами производителя"; }
-check_zbd5() { check_zbd_common || return; if grep_any "tx_power|country_code|ieee80211d" /etc/hostapd /etc/NetworkManager/system-connections 2>/dev/null; then check_pass "$MEASURE_CODE.1" "Обнаружены параметры ограничения радиосигнала/регуляторного домена"; else check_fail "$MEASURE_CODE.1" "Не обнаружены параметры ограничения уровня сигнала"; fi; }
+check_zbd5() { check_zbd_common || return; if grep_any "tx_power|country_code|ieee80211d" /etc/hostapd /etc/NetworkManager/system-connections 2>/dev/null; then check_info "$MEASURE_CODE.I1" "Обнаружены параметры tx_power/country_code/ieee80211d, но радиопокрытие и уровень сигнала требуют измерений"; else check_skip "$MEASURE_CODE.1" "Ограничение уровня радиосигнала требует измерений покрытия или подтвержденной конфигурации точки доступа"; fi; }
 check_zbd6() { check_zbd_common || return; check_wireless_logs "$MEASURE_CODE.1"; check_siem_forwarding "$MEASURE_CODE.2"; }
 
 check_avz1() { check_av_installed "$MEASURE_CODE.1"; check_av_updates "$MEASURE_CODE.2"; check_av_scheduled_scan "$MEASURE_CODE.3"; check_av_on_access "$MEASURE_CODE.4"; check_skip "$MEASURE_CODE.5" "Перечень устройств, порядок реагирования и проверка после обновления баз подтверждаются эксплуатационной документацией"; }

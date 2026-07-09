@@ -10,9 +10,6 @@ for arg in "$@"; do
     esac
 done
 
-check_pass() { fstek_status_line "$1" "PASS" "$2"; }
-check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
-check_info() { echo "[$1] INFO – $2"; }
 
 FAIL_COUNT=0
 
@@ -108,5 +105,5 @@ else
     skip_enhancement "УПД.4.5"
 fi
 
-echo "=== ИТОГ МОДУЛЯ УПД.4: FAIL=$FAIL_COUNT ==="
+finish_legacy_measure "УПД.4"
 [ $FAIL_COUNT -eq 0 ] && exit 0 || exit 1

@@ -14,9 +14,6 @@ FAIL_COUNT=0
 SKIP_COUNT=0
 
 # Унифицированные функции вывода
-check_pass() { fstek_status_line "$1" "PASS" "$2"; }
-check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
-check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 # РСБ.2.1 – Агенты анализа (HIDS/SIEM)
 AGENT_FOUND=false
@@ -38,6 +35,8 @@ if $AGENT_FOUND && $ANALYSIS_CONFIG_FOUND; then
     check_pass "РСБ.2.1" "Обнаружен агент и правила/настройки анализа событий безопасности ($AGENT_NAME)"
 elif $AGENT_FOUND; then
     check_fail "РСБ.2.1" "Обнаружен агент $AGENT_NAME, но не подтверждены правила/настройки анализа событий безопасности"
+elif fstek_component_expected siem; then
+    check_fail "РСБ.2.1" "Профиль требует SIEM/HIDS-анализ, но локальный агент и правила анализа не найдены"
 else
     check_skip "РСБ.2.1" "Агенты HIDS/SIEM не найдены (возможен ручной анализ или сетевой SIEM)"
 fi
@@ -62,5 +61,5 @@ else
 fi
 
 # Унифицированная итоговая строка
-echo "=== ИТОГ МОДУЛЯ РСБ.2: FAIL=$FAIL_COUNT, SKIP=$SKIP_COUNT ==="
+finish_legacy_measure "РСБ.2"
 [ $FAIL_COUNT -eq 0 ] && exit 0 || exit 1

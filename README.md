@@ -8,11 +8,53 @@ Bash-комплект для практической автоматизиров
 
 Структура проекта:
 
-- отдельный скрипт на каждую меру: `check_<код>.sh`;
-- общий запускатель: `check_all` и `check_all.sh`;
+- отдельный compatibility-скрипт на каждую меру: `check_<код>.sh`;
+- основной запускатель: `run.sh`;
+- совместимый общий запускатель: `check_all` и `check_all.sh`;
+- новый audit-engine каркас: `fstek_audit/`;
 - режим усилений по классу защищенности: `--class K1|K2|K3`;
 - совместимый режим всех усилений: `--with-enhancements` или `-e`;
 - скрипты только читают состояние ОС и конфигурационные файлы.
+
+## Audit-engine layout
+
+Репозиторий начал миграцию к более явной структуре `fstek_audit/`:
+
+```text
+fstek_audit/
+├── run.sh
+├── check_all.sh
+├── core/
+├── adapters/
+├── checks/
+├── config/
+├── output/
+├── tests/
+└── docs/
+```
+
+На этом этапе поведение не меняется: root-level `run.sh`, `check_all.sh`,
+`check_all` и `check_*.sh` остаются совместимыми entrypoint-ами.
+`lib_fstek.sh` сохранен как compatibility loader и подключает новые
+модули из `fstek_audit/core/`.
+
+Документы по новой структуре:
+
+- `docs/architecture.md`;
+- `docs/statuses.md`;
+- `docs/manual_controls.md`.
+
+Канонические реализации мер живут в `checks/<GROUP>/<CODE>.sh`
+(`checks` указывает на `fstek_audit/checks`). Root-level `check_*.sh`
+оставлены только как compatibility wrapper-ы и вызывают соответствующую меру
+через `run.sh --measure <CODE>`.
+`checks/manifest.tsv` является единым источником для списка реализованных мер,
+их файлов, entrypoint-функций, классов, названий и компонентов. `run.sh`,
+`check_all.sh` и `check_all` используют этот manifest-driven registry для
+фильтров `--list`, `--measure`, `--section` и `--class`.
+
+Следующие шаги миграции: постепенно уменьшать legacy-совместимость без
+изменения смысла проверок, статусов и CLI.
 
 ## Поддерживаемые ОС
 
@@ -28,6 +70,10 @@ Bash-комплект для практической автоматизиров
 ```bash
 cd /path/to/fstek-checks-2026
 sudo ./check_all
+sudo ./run.sh --list
+sudo ./run.sh --class K1
+sudo ./run.sh --section IAF
+sudo ./run.sh --measure ИАФ.3
 sudo ./check_all --class K1
 sudo ./check_all --class K2
 sudo ./check_all --class K3
@@ -40,6 +86,13 @@ sudo ./check_all --with-enhancements
 sudo ./check_zks1.sh
 sudo ./check_zks1.sh --class K2
 sudo ./check_zks1.sh --with-enhancements
+```
+
+Для нового интерфейса предпочтительнее manifest-driven запуск:
+
+```bash
+sudo ./run.sh --measure ЗКС.1
+sudo ./run.sh --measure ЗКС.1 --class K2
 ```
 
 Класс можно указать как `--class K1`, `--class=K1`, `--security-class K1`, `-c K1` или коротко `--k1`/`--k2`/`--k3`.
@@ -141,7 +194,14 @@ FSTEK_EXPECT_AV_PRODUCT=clamav   # clamav, kaspersky/kesl, drweb
 ## Проверка разработки
 
 ```bash
+bash tests/syntax.sh
 bash tests/smoke.sh
+bash tests/registry_consistency.sh
 ```
 
-Smoke-тест выполняет `bash -n`, проверяет соответствие wrapper/function, полноту class mapping или явное исключение по таблице методики, запускает все `check_*.sh --class K3` и `check_all.sh --class K1/K2/K3`. Тест безопасен и только читает локальное состояние.
+`tests/syntax.sh` выполняет `bash -n` для всех shell-скриптов. Smoke-тест
+проверяет, что root-level wrappers делегируют в `run.sh --measure`, проверяет
+полноту class mapping, запускает все `check_*.sh --class K3` и
+`check_all.sh --class K1/K2/K3`. `tests/registry_consistency.sh` проверяет,
+что manifest, root wrappers и measure files согласованы. Тесты безопасны и
+только читают локальное состояние.

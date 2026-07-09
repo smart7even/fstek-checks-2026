@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR" || exit 2
 
 # shellcheck disable=SC1091
-. "$ROOT_DIR/lib_fstek.sh"
+. "$SCRIPT_DIR/core/load.sh"
 
 LIST_ONLY=false
 MEASURE_FILTER=""

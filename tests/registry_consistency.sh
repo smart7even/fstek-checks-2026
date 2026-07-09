@@ -5,7 +5,7 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR" || exit 2
 
-manifest="checks/manifest.tsv"
+manifest="fstek_audit/checks/manifest.tsv"
 [ -r "$manifest" ] || { printf 'FAIL: missing %s\n' "$manifest" >&2; exit 1; }
 
 failures=0
@@ -40,12 +40,13 @@ while IFS=$'\t' read -r code section file function classes title component; do
     [ -n "$title" ] || fail "$code has empty title"
     [ -n "$component" ] || fail "$code has empty component"
 
-    if [ ! -r "$file" ]; then
-        fail "$code references missing file $file"
+    measure_path="fstek_audit/$file"
+    if [ ! -r "$measure_path" ]; then
+        fail "$code references missing file $measure_path"
         continue
     fi
-    if ! grep -q "^$function()" "$file"; then
-        fail "$code references missing function $function in $file"
+    if ! grep -q "^$function()" "$measure_path"; then
+        fail "$code references missing function $function in $measure_path"
     fi
     case "$file" in
         checks/"$section"/*) : ;;
@@ -75,8 +76,8 @@ for file in $manifest_files; do
     fi
 done
 
-if ! grep -q 'exec "$SCRIPT_DIR/run.sh" "$@"' check_all.sh; then
-    fail "check_all.sh does not delegate to run.sh"
+if ! grep -q 'exec "$SCRIPT_DIR/fstek_audit/run.sh" "$@"' check_all.sh; then
+    fail "check_all.sh does not delegate to fstek_audit/run.sh"
 fi
 
 for class in K1 K2 K3; do
@@ -94,10 +95,10 @@ for class in K1 K2 K3; do
     [ "$count" -gt 0 ] || fail "class $class selects no measures"
 done
 
-if ./run.sh --list >/dev/null 2>&1; then
+if ./check_all.sh --list >/dev/null 2>&1; then
     :
 else
-    fail "run.sh --list failed"
+    fail "check_all.sh --list failed"
 fi
 
 if [ "$failures" -eq 0 ]; then

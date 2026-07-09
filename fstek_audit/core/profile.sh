@@ -1,6 +1,5 @@
 #!/bin/bash
 # core/profile.sh - CLI class flags and local profile/scope loading.
-# Sourced by lib_fstek.sh for compatibility.
 
 WITH_ENHANCEMENTS=false
 FSTEK_SECURITY_CLASS=""

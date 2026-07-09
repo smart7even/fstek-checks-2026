@@ -5,6 +5,7 @@ set -u
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR" || exit 2
+MANIFEST="$ROOT_DIR/fstek_audit/checks/manifest.tsv"
 
 FAILURES=0
 
@@ -43,14 +44,14 @@ while IFS= read -r file; do
     fi
 done < <(find fstek_audit/checks -mindepth 2 -maxdepth 2 -type f -name '*.sh' | sort)
 
-if grep -q 'exec "$SCRIPT_DIR/run.sh" "$@"' check_all.sh; then
-    ok "check_all.sh delegates to run.sh"
+if grep -q 'exec "$SCRIPT_DIR/fstek_audit/run.sh" "$@"' check_all.sh; then
+    ok "check_all.sh delegates to fstek_audit/run.sh"
 else
-    fail "check_all.sh does not delegate to run.sh"
+    fail "check_all.sh does not delegate to fstek_audit/run.sh"
 fi
 
 # shellcheck disable=SC1091
-. "$ROOT_DIR/lib_fstek.sh"
+. "$ROOT_DIR/fstek_audit/core/load.sh"
 
 printf '\n== class mapping completeness ==\n'
 while IFS=$'\t' read -r code section file function classes title component; do
@@ -61,7 +62,7 @@ while IFS=$'\t' read -r code section file function classes title component; do
     else
         fail "$code from manifest is missing from fstek_measure_classes and exclusion list"
     fi
-done < checks/manifest.tsv
+done < "$MANIFEST"
 
 printf '\n== registry consistency ==\n'
 if bash tests/registry_consistency.sh; then
@@ -71,17 +72,17 @@ else
 fi
 
 printf '\n== manifest runner ==\n'
-if ./run.sh --list | grep -q $'^code\tsection\tclasses\t'; then
-    ok "run.sh --list"
+if ./check_all.sh --list | grep -q $'^code\tsection\tclasses\t'; then
+    ok "check_all.sh --list"
 else
-    fail "run.sh --list"
+    fail "check_all.sh --list"
 fi
 
 printf '\n== individual measure smoke ==\n'
 while IFS=$'\t' read -r code section file function classes title component; do
     [ "$code" = "code" ] && continue
     case "$code" in ""|\#*) continue ;; esac
-    output="$(FSTEK_COLOR=never ./run.sh --measure "$code" --class K3 2>&1)"
+    output="$(FSTEK_COLOR=never ./check_all.sh --measure "$code" --class K3 2>&1)"
     rc=$?
     if printf '%s\n' "$output" | awk '
         /^\[[^]]+\] PASS \([A-Z]+\) –/ && $0 !~ /^\[[^]]+\] PASS \((HIGH|MEDIUM)\) –/ {bad=1}
@@ -90,29 +91,17 @@ while IFS=$'\t' read -r code section file function classes title component; do
     '; then
         :
     else
-        fail "run.sh --measure $code emitted an invalid confidence-bearing status"
+        fail "check_all.sh --measure $code emitted an invalid confidence-bearing status"
         printf '%s\n' "$output" >&2
         continue
     fi
     if status_is_verdict "$rc" && printf '%s\n' "$output" | grep -Eq '^\[[^]]+\] (PASS \((HIGH|MEDIUM)\)|FAIL|SKIP|INFO|NA) – '; then
-        ok "run.sh --measure $code --class K3"
+        ok "check_all.sh --measure $code --class K3"
     else
-        fail "run.sh --measure $code --class K3 exited $rc or emitted no verdict"
+        fail "check_all.sh --measure $code --class K3 exited $rc or emitted no verdict"
         printf '%s\n' "$output" >&2
     fi
-done < checks/manifest.tsv
-
-printf '\n== run.sh class smoke ==\n'
-for class in K1 K2 K3; do
-    output="$(FSTEK_COLOR=never ./run.sh --class "$class" 2>&1)"
-    rc=$?
-    if status_is_verdict "$rc" && printf '%s\n' "$output" | grep -q 'ИТОГОВЫЙ ОТЧЕТ'; then
-        ok "run.sh --class $class"
-    else
-        fail "run.sh --class $class exited $rc or missed final report"
-        printf '%s\n' "$output" >&2
-    fi
-done
+done < "$MANIFEST"
 
 printf '\n== check_all class smoke ==\n'
 for class in K1 K2 K3; do

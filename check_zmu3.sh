@@ -1,12 +1,4 @@
 #!/bin/bash
-# check_zmu3.sh - Обеспечение целостности мобильных устройств (ЗМУ.3)
-# Соответствие разделу 4 Методического документа ФСТЭК России от 12.04.2026.
-# ОС: Astra Linux SE 1.7/1.8, ALT Linux, RED OS.
-# Запуск: ./check_zmu3.sh [--with-enhancements|-e]
-
+# check_zmu3.sh - compatibility wrapper for manifest measure ЗМУ.3.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "$SCRIPT_DIR/lib_fstek.sh"
-
-init_measure "ЗМУ.3" "Обеспечение целостности мобильных устройств"
-check_zmu3
-finish_measure
+exec "$SCRIPT_DIR/run.sh" --measure "ЗМУ.3" "$@"

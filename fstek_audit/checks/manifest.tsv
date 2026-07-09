@@ -1,0 +1,108 @@
+code	section	file	function	classes	title	component
+ИАФ.1	IAF	checks/IAF/IAF_01.sh	run_check	K1,K2,K3	Идентификация пользователей	linux
+ИАФ.2	IAF	checks/IAF/IAF_02.sh	run_check	K1,K2,K3	Идентификация устройств	linux
+ИАФ.3	IAF	checks/IAF/IAF_03.sh	run_check	K1,K2,K3	Управление средствами аутентификации	linux
+ИАФ.4	IAF	checks/IAF/IAF_04.sh	run_check	K1,K2,K3	Идентификация и аутентификация устройств	linux
+УПД.1	UPD	checks/UPD/UPD_01.sh	run_check	K1,K2,K3	Реализация модели управления доступом	linux
+УПД.2	UPD	checks/UPD/UPD_02.sh	run_check	K1,K2,K3	Разграничение и контроль прав доступа	linux
+УПД.3	UPD	checks/UPD/UPD_03.sh	run_check	K1,K2,K3	Управление учетными записями	linux
+УПД.4	UPD	checks/UPD/UPD_04.sh	run_check	K1,K2,K3	Ограничение неуспешных попыток доступа	linux
+УПД.5	UPD	checks/UPD/UPD_05.sh	run_check	K1,K2,K3	Предупреждение пользователя	linux
+УПД.6	UPD	checks/UPD/UPD_06.sh	run_check	K1,K2,K3	Оповещение о предыдущем входе	linux
+УПД.7	UPD	checks/UPD/UPD_07.sh	run_check	K1,K2	Ограничение параллельных сеансов	linux
+УПД.8	UPD	checks/UPD/UPD_08.sh	run_check	K1,K2,K3	Блокирование сеанса при неактивности	linux
+УПД.9	UPD	checks/UPD/UPD_09.sh	run_check	K1,K2,K3	Контроль действий до идентификации и аутентификации	linux
+РСБ.1	RSB	checks/RSB/RSB_01.sh	run_check	K1,K2,K3	Определение событий безопасности	linux
+РСБ.2	RSB	checks/RSB/RSB_02.sh	run_check	K1,K2,K3	Анализ событий и реагирование	linux
+РСБ.3	RSB	checks/RSB/RSB_03.sh	run_check	K1,K2,K3	Генерация временных меток	linux
+РСБ.4	RSB	checks/RSB/RSB_04.sh	run_check	K1,K2,K3	Сбор, хранение и защита журналов	linux
+РСБ.5	RSB	checks/RSB/RSB_05.sh	run_check	K1,K2,K3	Реагирование на сбои регистрации	linux
+ЗСВ.1	ZSV	checks/ZSV/ZSV_01.sh	run_check	K1,K2,K3	Доверенная загрузка средств виртуализации и виртуальных машин	virtualization
+ЗСВ.2	ZSV	checks/ZSV/ZSV_02.sh	run_check	K1,K2,K3	Контроль целостности средств виртуализации и виртуальных машин	virtualization
+ЗСВ.3	ZSV	checks/ZSV/ZSV_03.sh	run_check	K1,K2,K3	Регистрация событий безопасности в среде виртуализации	virtualization
+ЗСВ.4	ZSV	checks/ZSV/ZSV_04.sh	run_check	K1,K2,K3	Управление доступом в среде виртуализации	virtualization
+ЗСВ.5	ZSV	checks/ZSV/ZSV_05.sh	run_check	K1,K2,K3	Резервное копирование в среде виртуализации	virtualization
+ЗСВ.6	ZSV	checks/ZSV/ZSV_06.sh	run_check	K1,K2,K3	Ограничение программной среды в среде виртуализации	virtualization
+ЗСВ.7	ZSV	checks/ZSV/ZSV_07.sh	run_check	K1,K2,K3	Защита памяти в среде виртуализации	virtualization
+ЗСВ.8	ZSV	checks/ZSV/ZSV_08.sh	run_check	K1,K2,K3	Идентификация и аутентификация в среде виртуализации	virtualization
+ЗСВ.9	ZSV	checks/ZSV/ZSV_09.sh	run_check	K1,K2	Управление виртуальными машинами	virtualization
+ЗКО.1	ZKO	checks/ZKO/ZKO_01.sh	run_check	K1,K2,K3	Контроль целостности в контейнерных средах	containers
+ЗКО.2	ZKO	checks/ZKO/ZKO_02.sh	run_check	K1,K2,K3	Регистрация событий безопасности в контейнерных средах	containers
+ЗКО.3	ZKO	checks/ZKO/ZKO_03.sh	run_check	K1,K2,K3	Управление доступом в контейнерных средах	containers
+ЗКО.4	ZKO	checks/ZKO/ZKO_04.sh	run_check	K1,K2,K3	Резервное копирование в контейнерных средах	containers
+ЗКО.5	ZKO	checks/ZKO/ZKO_05.sh	run_check	K1,K2,K3	Изоляция контейнеров в контейнерных средах	containers
+ЗКО.6	ZKO	checks/ZKO/ZKO_06.sh	run_check	K1,K2,K3	Идентификация, аутентификация и защита сетевого взаимодействия	containers
+ЗКО.7	ZKO	checks/ZKO/ZKO_07.sh	run_check	K1,K2,K3	Управление контейнерами и их образами	containers
+ЗКО.8	ZKO	checks/ZKO/ZKO_08.sh	run_check	K1,K2,K3	Выявление и устранение уязвимостей в контейнерной среде	containers
+ЗЭП.1	ZEP	checks/ZEP/ZEP_01.sh	run_check	K1,K2,K3	Защита ящиков и сообщений электронной почты	mail
+ЗЭП.2	ZEP	checks/ZEP/ZEP_02.sh	run_check	K1,K2,K3	Управление доступом пользователей электронной почты	mail
+ЗЭП.3	ZEP	checks/ZEP/ZEP_03.sh	run_check	K1,K2,K3	Защита от вредоносных вложений	mail
+ЗЭП.4	ZEP	checks/ZEP/ZEP_04.sh	run_check	K1,K2,K3	Защита от фишинга	mail
+ЗЭП.5	ZEP	checks/ZEP/ZEP_05.sh	run_check	K1,K2,K3	Защита от спама	mail
+ЗЭП.6	ZEP	checks/ZEP/ZEP_06.sh	run_check	K1,K2,K3	Защита метаданных сервисов электронной почты	mail
+ЗВТ.1	ZVT	checks/ZVT/ZVT_01.sh	run_check	K1,K2,K3	Защита пользовательских данных	web
+ЗВТ.2	ZVT	checks/ZVT/ZVT_02.sh	run_check	K1,K2,K3	Управление доступом пользователей	web
+ЗВТ.3	ZVT	checks/ZVT/ZVT_03.sh	run_check	K1,K2,K3	Контроль и фильтрация трафика веб-приложений	web
+ЗВТ.4	ZVT	checks/ZVT/ZVT_04.sh	run_check	K1,K2,K3	Регистрация событий безопасности в веб-приложениях и реагирование на них	web
+ЗВТ.5	ZVT	checks/ZVT/ZVT_05.sh	run_check	K1,K2,K3	Проверка файлов, передаваемых веб-приложениями, на вредоносное ПО	web
+ЗПИ.1	ZPI	checks/ZPI/ZPI_01.sh	run_check	K1,K2,K3	Защита данных API	api
+ЗПИ.2	ZPI	checks/ZPI/ZPI_02.sh	run_check	K1,K2,K3	Управление доступом пользователей и приложений API	api
+ЗПИ.3	ZPI	checks/ZPI/ZPI_03.sh	run_check	K1,K2,K3	Проверка на соответствие спецификации API	api
+ЗКУ.1	ZKU	checks/ZKU/ZKU_01.sh	run_check	K1,K2,K3	Управление доступом к конечным устройствам	endpoint
+ЗКУ.2	ZKU	checks/ZKU/ZKU_02.sh	run_check	K1,K2,K3	Обеспечение целостности ПО конечного устройства	endpoint
+ЗКУ.3	ZKU	checks/ZKU/ZKU_03.sh	run_check	K1,K2,K3	Антивирусная защита и обнаружение/предотвращение вторжений	endpoint
+ЗКУ.4	ZKU	checks/ZKU/ZKU_04.sh	run_check	K1,K2,K3	Мониторинг процессов и состояния устройства	endpoint
+ЗКУ.5	ZKU	checks/ZKU/ZKU_05.sh	run_check	K1,K2,K3	Контроль и фильтрация трафика на конечном устройстве	endpoint
+ЗКУ.6	ZKU	checks/ZKU/ZKU_06.sh	run_check	K1,K2,K3	Анализ и реагирование на события безопасности	endpoint
+ЗМУ.1	ZMU	checks/ZMU/ZMU_01.sh	run_check	K1,K2,K3	Идентификация и аутентификация пользователей мобильных устройств	mobile
+ЗМУ.2	ZMU	checks/ZMU/ZMU_02.sh	run_check	K1,K2,K3	Управление доступом пользователей к мобильным устройствам	mobile
+ЗМУ.3	ZMU	checks/ZMU/ZMU_03.sh	run_check	K1,K2,K3	Обеспечение целостности мобильных устройств	mobile
+ЗМУ.4	ZMU	checks/ZMU/ZMU_04.sh	run_check	K1,K2,K3	Защита данных мобильных устройств	mobile
+ЗМУ.5	ZMU	checks/ZMU/ZMU_05.sh	run_check	K1,K2,K3	Антивирусная защита мобильных устройств	mobile
+ЗМУ.6	ZMU	checks/ZMU/ZMU_06.sh	run_check	K1,K2,K3	Контроль приложений мобильных устройств	mobile
+ЗМУ.7	ZMU	checks/ZMU/ZMU_07.sh	run_check	K1,K2,K3	Ограничение и контроль функциональности мобильных устройств	mobile
+ЗМУ.8	ZMU	checks/ZMU/ZMU_08.sh	run_check	K1,K2,K3	Определение и контроль геопозиции мобильных устройств	mobile
+ЗМУ.9	ZMU	checks/ZMU/ZMU_09.sh	run_check	K1,K2,K3	Регистрация, анализ и реагирование на события безопасности мобильных устройств	mobile
+ЗИВ.1	ZIV	checks/ZIV/ZIV_01.sh	run_check	K1,K2,K3	Идентификация и аутентификация IoT	iot
+ЗИВ.2	ZIV	checks/ZIV/ZIV_02.sh	run_check	K1,K2,K3	Управление доступом IoT	iot
+ЗИВ.3	ZIV	checks/ZIV/ZIV_03.sh	run_check	K1,K2,K3	Защита данных IoT	iot
+ЗИВ.4	ZIV	checks/ZIV/ZIV_04.sh	run_check	K1,K2,K3	Контроль целостности IoT	iot
+ЗИВ.5	ZIV	checks/ZIV/ZIV_05.sh	run_check	K1,K2,K3	Регистрация, анализ и реагирование на события безопасности IoT	iot
+ЗБД.1	ZBD	checks/ZBD/ZBD_01.sh	run_check	K1,K2,K3	Идентификация и аутентификация точек беспроводного доступа	wireless
+ЗБД.2	ZBD	checks/ZBD/ZBD_02.sh	run_check	K1,K2,K3	Управление доступом к беспроводной сети	wireless
+ЗБД.3	ZBD	checks/ZBD/ZBD_03.sh	run_check	K1,K2,K3	Защита пользовательских данных беспроводной сети	wireless
+ЗБД.4	ZBD	checks/ZBD/ZBD_04.sh	run_check	K1,K2,K3	Контроль целостности точек беспроводного доступа	wireless
+ЗБД.5	ZBD	checks/ZBD/ZBD_05.sh	run_check	K1,K2,K3	Ограничение уровней сигналов беспроводного доступа	wireless
+ЗБД.6	ZBD	checks/ZBD/ZBD_06.sh	run_check	K1,K2,K3	Регистрация, анализ и реагирование на события беспроводного доступа	wireless
+АВЗ.1	AVZ	checks/AVZ/AVZ_01.sh	run_check	K1,K2,K3	Антивирусная защита устройств	antivirus
+АВЗ.2	AVZ	checks/AVZ/AVZ_02.sh	run_check	K1,K2,K3	Антивирусная защита электронной почты	antivirus
+АВЗ.3	AVZ	checks/AVZ/AVZ_03.sh	run_check	K1,K2,K3	Антивирусная проверка сетевого трафика	antivirus
+АВЗ.4	AVZ	checks/AVZ/AVZ_04.sh	run_check	K1,K2,K3	Замкнутая среда предварительного анализа файлов	antivirus
+СОВ.1	SOV	checks/SOV/SOV_01.sh	run_check	K1,K2,K3	Обнаружение и предотвращение вторжений на периметре	ids
+СОВ.2	SOV	checks/SOV/SOV_02.sh	run_check	K1,K2,K3	Обнаружение и предотвращение вторжений в сегментах	ids
+МСЭ.1	MSE	checks/MSE/MSE_01.sh	run_check	K1,K2,K3	Сегментация сети	network
+МСЭ.2	MSE	checks/MSE/MSE_02.sh	run_check	K1,K2,K3	Организация демилитаризованной зоны	network
+МСЭ.3	MSE	checks/MSE/MSE_03.sh	run_check	K1,K2,K3	Контроль сетевого доступа и фильтрация трафика	network
+МСЭ.4	MSE	checks/MSE/MSE_04.sh	run_check	K1,K2,K3	Маскирование системы	network
+МСЭ.5	MSE	checks/MSE/MSE_05.sh	run_check	K1,K2,K3	Создание ложных систем	network
+ЗОО.1	ZOO	checks/ZOO/ZOO_01.sh	run_check	K1,K2,K3	Защита от атак, направленных на отказ в обслуживании	availability
+ЗОО.2	ZOO	checks/ZOO/ZOO_02.sh	run_check	K1,K2,K3	Контроль и фильтрация входящего трафика	availability
+ЗОО.3	ZOO	checks/ZOO/ZOO_03.sh	run_check	K1,K2,K3	Мониторинг состояния сервисов и интерфейсов	availability
+ЗОО.4	ZOO	checks/ZOO/ZOO_04.sh	run_check	K1,K2,K3	Балансировка нагрузки	availability
+ЗОО.5	ZOO	checks/ZOO/ZOO_05.sh	run_check	K1,K2,K3	Ограничение нагрузки	availability
+ЗОО.6	ZOO	checks/ZOO/ZOO_06.sh	run_check	K1,K2	Поддержка резерва пропускной способности и ресурсов	availability
+ЗКС.1	ZKS	checks/ZKS/ZKS_01.sh	run_check	K1,K2,K3	Защита данных при передаче по каналам связи	network
+ЗКС.2	ZKS	checks/ZKS/ZKS_02.sh	run_check	K1,K2,K3	Контроль атрибутов безопасности при сетевом взаимодействии	network
+ЗКС.3	ZKS	checks/ZKS/ZKS_03.sh	run_check	K1,K2,K3	Контроль доступа к внешним ресурсам	network
+ЗКС.4	ZKS	checks/ZKS/ZKS_04.sh	run_check	K1,K2,K3	Контекстная проверка исходящего трафика	network
+# TODO: verify class applicability for ИАФ.2; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
+# TODO: verify class applicability for ИАФ.4; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
+# TODO: verify class applicability for УПД.5; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
+# TODO: verify class applicability for УПД.6; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
+# TODO: verify class applicability for ЗКУ.5; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
+# TODO: verify class applicability for ЗМУ.8; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
+# TODO: verify class applicability for АВЗ.4; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
+# TODO: verify class applicability for МСЭ.4; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
+# TODO: verify class applicability for МСЭ.5; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
+# TODO: verify class applicability for ЗОО.4; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
+# TODO: verify class applicability for ЗКС.4; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.

@@ -43,24 +43,6 @@ while IFS= read -r file; do
     fi
 done < <(find fstek_audit/checks -mindepth 2 -maxdepth 2 -type f -name '*.sh' | sort)
 
-printf '\n== compatibility wrappers ==\n'
-for script in check_*.sh; do
-    [ "$script" = "check_all.sh" ] && continue
-    measure_code="$(sed -n 's|.*run\.sh" --measure "\([^"]*\)".*|\1|p' "$script")"
-    if [ -z "$measure_code" ]; then
-        fail "$script does not delegate to run.sh --measure"
-        continue
-    fi
-    if awk -F '\t' -v code="$measure_code" 'NR > 1 && $0 !~ /^[[:space:]]*(#|$)/ && $1 == code { found = 1 } END { exit found ? 0 : 1 }' checks/manifest.tsv; then
-        ok "$script -> manifest measure $measure_code"
-    else
-        fail "$script points to missing manifest measure $measure_code"
-    fi
-    if grep -Eq 'fstek_run_measure_file|fstek_run_measure_function|^check_[a-z0-9_]+$' "$script"; then
-        fail "$script bypasses the manifest runner"
-    fi
-done
-
 if grep -q 'exec "$SCRIPT_DIR/run.sh" "$@"' check_all.sh; then
     ok "check_all.sh delegates to run.sh"
 else
@@ -71,18 +53,15 @@ fi
 . "$ROOT_DIR/lib_fstek.sh"
 
 printf '\n== class mapping completeness ==\n'
-for script in check_*.sh; do
-    [ "$script" = "check_all.sh" ] && continue
-    code="$(fstek_measure_code_from_script "$script")" || {
-        fail "cannot derive measure code from $script"
-        continue
-    }
+while IFS=$'\t' read -r code section file function classes title component; do
+    [ "$code" = "code" ] && continue
+    case "$code" in ""|\#*) continue ;; esac
     if [ -n "$(fstek_measure_classes "$code")" ] || fstek_measure_intentionally_excluded "$code"; then
         ok "$code mapped or intentionally excluded"
     else
-        fail "$code from $script is missing from fstek_measure_classes and exclusion list"
+        fail "$code from manifest is missing from fstek_measure_classes and exclusion list"
     fi
-done
+done < checks/manifest.tsv
 
 printf '\n== registry consistency ==\n'
 if bash tests/registry_consistency.sh; then
@@ -98,10 +77,11 @@ else
     fail "run.sh --list"
 fi
 
-printf '\n== individual check smoke ==\n'
-for script in check_*.sh; do
-    [ "$script" = "check_all.sh" ] && continue
-    output="$(FSTEK_COLOR=never bash "$script" --class K3 2>&1)"
+printf '\n== individual measure smoke ==\n'
+while IFS=$'\t' read -r code section file function classes title component; do
+    [ "$code" = "code" ] && continue
+    case "$code" in ""|\#*) continue ;; esac
+    output="$(FSTEK_COLOR=never ./run.sh --measure "$code" --class K3 2>&1)"
     rc=$?
     if printf '%s\n' "$output" | awk '
         /^\[[^]]+\] PASS \([A-Z]+\) –/ && $0 !~ /^\[[^]]+\] PASS \((HIGH|MEDIUM)\) –/ {bad=1}
@@ -110,17 +90,17 @@ for script in check_*.sh; do
     '; then
         :
     else
-        fail "$script emitted an invalid confidence-bearing status"
+        fail "run.sh --measure $code emitted an invalid confidence-bearing status"
         printf '%s\n' "$output" >&2
         continue
     fi
     if status_is_verdict "$rc" && printf '%s\n' "$output" | grep -Eq '^\[[^]]+\] (PASS \((HIGH|MEDIUM)\)|FAIL|SKIP|INFO|NA) – '; then
-        ok "$script --class K3"
+        ok "run.sh --measure $code --class K3"
     else
-        fail "$script --class K3 exited $rc or emitted no verdict"
+        fail "run.sh --measure $code --class K3 exited $rc or emitted no verdict"
         printf '%s\n' "$output" >&2
     fi
-done
+done < checks/manifest.tsv
 
 printf '\n== run.sh class smoke ==\n'
 for class in K1 K2 K3; do

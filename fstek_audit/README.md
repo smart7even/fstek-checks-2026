@@ -1,6 +1,6 @@
 # fstek_audit
 
-This directory contains the new audit-engine layout. Root-level scripts remain the compatibility entrypoints during migration.
+This directory contains the audit-engine layout. Root-level `run.sh`, `check_all`, and `check_all.sh` remain compatibility entrypoints.
 
 Use from repository root:
 

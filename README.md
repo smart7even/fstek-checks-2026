@@ -8,7 +8,6 @@ Bash-комплект для практической автоматизиров
 
 Структура проекта:
 
-- отдельный compatibility-скрипт на каждую меру: `check_<код>.sh`;
 - основной запускатель: `run.sh`;
 - совместимый общий запускатель: `check_all` и `check_all.sh`;
 - новый audit-engine каркас: `fstek_audit/`;
@@ -33,10 +32,9 @@ fstek_audit/
 └── docs/
 ```
 
-На этом этапе поведение не меняется: root-level `run.sh`, `check_all.sh`,
-`check_all` и `check_*.sh` остаются совместимыми entrypoint-ами.
-`lib_fstek.sh` сохранен как compatibility loader и подключает новые
-модули из `fstek_audit/core/`.
+На этом этапе root-level `run.sh`, `check_all.sh` и `check_all` остаются
+совместимыми entrypoint-ами. `lib_fstek.sh` сохранен как compatibility loader
+и подключает новые модули из `fstek_audit/core/`.
 
 Документы по новой структуре:
 
@@ -45,9 +43,8 @@ fstek_audit/
 - `docs/manual_controls.md`.
 
 Канонические реализации мер живут в `checks/<GROUP>/<CODE>.sh`
-(`checks` указывает на `fstek_audit/checks`). Root-level `check_*.sh`
-оставлены только как compatibility wrapper-ы и вызывают соответствующую меру
-через `run.sh --measure <CODE>`.
+(`checks` указывает на `fstek_audit/checks`). Для одиночной меры используйте
+`run.sh --measure <CODE>`.
 `checks/manifest.tsv` является единым источником для списка реализованных мер,
 их файлов, entrypoint-функций, классов, названий и компонентов. `run.sh`,
 `check_all.sh` и `check_all` используют этот manifest-driven registry для
@@ -83,16 +80,9 @@ sudo ./check_all --with-enhancements
 Одиночная проверка:
 
 ```bash
-sudo ./check_zks1.sh
-sudo ./check_zks1.sh --class K2
-sudo ./check_zks1.sh --with-enhancements
-```
-
-Для нового интерфейса предпочтительнее manifest-driven запуск:
-
-```bash
 sudo ./run.sh --measure ЗКС.1
 sudo ./run.sh --measure ЗКС.1 --class K2
+sudo ./run.sh --measure ЗКС.1 --with-enhancements
 ```
 
 Класс можно указать как `--class K1`, `--class=K1`, `--security-class K1`, `-c K1` или коротко `--k1`/`--k2`/`--k3`.
@@ -200,8 +190,7 @@ bash tests/registry_consistency.sh
 ```
 
 `tests/syntax.sh` выполняет `bash -n` для всех shell-скриптов. Smoke-тест
-проверяет, что root-level wrappers делегируют в `run.sh --measure`, проверяет
-полноту class mapping, запускает все `check_*.sh --class K3` и
-`check_all.sh --class K1/K2/K3`. `tests/registry_consistency.sh` проверяет,
-что manifest, root wrappers и measure files согласованы. Тесты безопасны и
-только читают локальное состояние.
+проверяет полноту class mapping, запускает все меры из manifest через
+`run.sh --measure <CODE> --class K3` и `check_all.sh --class K1/K2/K3`.
+`tests/registry_consistency.sh` проверяет, что manifest и measure files
+согласованы. Тесты безопасны и только читают локальное состояние.

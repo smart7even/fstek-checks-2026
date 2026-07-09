@@ -4,7 +4,7 @@ This repository is being refactored toward an audit-engine layout under `fstek_a
 
 ## Current compatibility model
 
-The root-level `check_all`, `check_all.sh`, `check_*.sh`, and `lib_fstek.sh` remain supported. Existing check scripts still source `./lib_fstek.sh`; that file is now a compatibility loader for `fstek_audit/core/*.sh`.
+The root-level `check_all`, `check_all.sh`, and `lib_fstek.sh` remain supported. Measure logic lives under `fstek_audit/checks/` and is invoked through the manifest-driven runner.
 
 No check logic or verdict semantics are changed by this layout step.
 
@@ -26,10 +26,10 @@ No check logic or verdict semantics are changed by this layout step.
 
 ## Migration rule
 
-Move behavior in small steps. During migration, `./run.sh --class K1/K2/K3`, `./check_all.sh --class K1/K2/K3`, and each `./check_*.sh` must continue to work.
+Move behavior in small steps. During migration, `./run.sh --class K1/K2/K3` and `./check_all.sh --class K1/K2/K3` must continue to work.
 ## Measure Files
 
-Measure-specific logic now lives in `fstek_audit/checks/<SECTION>/<CODE>.sh`, exposed at the repository root as `checks/<SECTION>/<CODE>.sh`. Root `check_*.sh` files are compatibility wrappers that call `run.sh --measure <CODE>` so legacy single-measure entrypoints still use the manifest registry.
+Measure-specific logic lives in `fstek_audit/checks/<SECTION>/<CODE>.sh`, exposed at the repository root as `checks/<SECTION>/<CODE>.sh`. Single-measure runs use `run.sh --measure <CODE>`.
 
 ## Manifest Registry
 

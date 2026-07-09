@@ -75,21 +75,6 @@ for file in $manifest_files; do
     fi
 done
 
-for script in check_*.sh; do
-    [ "$script" = "check_all.sh" ] && continue
-    measure_code="$(sed -n 's|.*run\.sh" --measure "\([^"]*\)".*|\1|p' "$script")"
-    if [ -z "$measure_code" ]; then
-        fail "$script does not delegate to run.sh --measure"
-        continue
-    fi
-    if ! printf '%s\n' "$manifest_codes" | grep -Fxq "$measure_code"; then
-        fail "$script points to missing manifest measure: $measure_code"
-    fi
-    if grep -Eq 'fstek_run_measure_file|fstek_run_measure_function|^check_[a-z0-9_]+$' "$script"; then
-        fail "$script bypasses the manifest runner"
-    fi
-done
-
 if ! grep -q 'exec "$SCRIPT_DIR/run.sh" "$@"' check_all.sh; then
     fail "check_all.sh does not delegate to run.sh"
 fi

@@ -8,15 +8,12 @@ FAIL_COUNT=0
 SKIP_COUNT=0
 
 # Унифицированные функции вывода
-check_pass() { fstek_status_line "$1" "PASS" "$2"; }
-check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
-check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 # --- ПРОВЕРКА НАЛИЧИЯ СРЕДСТВ ВИРТУАЛИЗАЦИИ ---
 # Если libvirt/virsh не обнаружены, проверка ЗСВ.1 пропускается
 if ! command -v virsh &>/dev/null && ! systemctl is-active --quiet libvirtd 2>/dev/null; then
     check_skip "ЗСВ.4" "Средства виртуализации (libvirt/virsh) не обнаружены. Проверка ЗСВ.4 пропущена."
-    echo "=== ИТОГ МОДУЛЯ ЗСВ.4: FAIL=0, SKIP=1 ==="
+    finish_legacy_measure "ЗСВ.4"
     exit 0
 fi
 
@@ -123,5 +120,5 @@ if ! $ISOLATION_CONFIGURED; then
 fi
 
 # Унифицированная итоговая строка
-echo "=== ИТОГ МОДУЛЯ ЗСВ.4: FAIL=$FAIL_COUNT, SKIP=$SKIP_COUNT ==="
+finish_legacy_measure "ЗСВ.4"
 [ $FAIL_COUNT -eq 0 ] && exit 0 || exit 1

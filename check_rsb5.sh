@@ -14,9 +14,6 @@ FAIL_COUNT=0
 SKIP_COUNT=0
 
 # Унифицированные функции вывода
-check_pass() { fstek_status_line "$1" "PASS" "$2"; }
-check_fail() { fstek_status_line "$1" "FAIL" "$2"; ((FAIL_COUNT++)); }
-check_skip() { fstek_status_line "$1" "SKIP" "$2 (НЕ ПОДДАЁТСЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКЕ)"; ((SKIP_COUNT++)); }
 
 AUDIT_CONF="/etc/audit/auditd.conf"
 
@@ -64,5 +61,5 @@ else
 fi
 
 # Унифицированная итоговая строка
-echo "=== ИТОГ МОДУЛЯ РСБ.5: FAIL=$FAIL_COUNT, SKIP=$SKIP_COUNT ==="
+finish_legacy_measure "РСБ.5"
 [ $FAIL_COUNT -eq 0 ] && exit 0 || exit 1

@@ -4,7 +4,7 @@ This repository is being refactored toward an audit-engine layout under `fstek_a
 
 ## Current compatibility model
 
-The root-level `check_all`, `check_all.sh`, `check_*.sh`, and `lib_fstek.sh` remain supported. Existing check scripts still source `./lib_fstek.sh`; that file is now a compatibility loader for `fstek_audit/core/*.sh`.
+The root-level `check_all`, `check_all.sh`, and `lib_fstek.sh` remain supported. Measure logic lives under `fstek_audit/checks/` and is invoked through the manifest-driven runner.
 
 No check logic or verdict semantics are changed by this layout step.
 
@@ -26,4 +26,4 @@ No check logic or verdict semantics are changed by this layout step.
 
 ## Migration rule
 
-Move behavior in small steps. During migration, `./check_all.sh --class K1/K2/K3` and each `./check_*.sh` must continue to work.
+Move behavior in small steps. During migration, `./check_all.sh --class K1/K2/K3` and `./run.sh --class K1/K2/K3` must continue to work.

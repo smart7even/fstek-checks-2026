@@ -5,3 +5,8 @@
 *.swo
 reports/
 artifacts/
+fstek_audit/output/fleet/
+fstek_audit/output/*.log
+fstek_audit/output/*.json
+.env.local
+fstek_audit/config/inventory.lab.conf

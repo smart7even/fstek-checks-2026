@@ -57,10 +57,12 @@ printf '\n== class mapping completeness ==\n'
 while IFS=$'\t' read -r code section file function classes title component; do
     [ "$code" = "code" ] && continue
     case "$code" in ""|\#*) continue ;; esac
-    if [ -n "$(fstek_measure_classes "$code")" ] || fstek_measure_intentionally_excluded "$code"; then
-        ok "$code mapped or intentionally excluded"
+    if [ "$classes" = "-" ]; then
+        ok "$code optional measure without class applicability"
+    elif [ -n "$classes" ]; then
+        ok "$code mapped to classes: $classes"
     else
-        fail "$code from manifest is missing from fstek_measure_classes and exclusion list"
+        fail "$code from manifest has invalid class mapping"
     fi
 done < "$MANIFEST"
 
@@ -114,6 +116,63 @@ for class in K1 K2 K3; do
         printf '%s\n' "$output" >&2
     fi
 done
+
+printf '\n== report output ==\n'
+REPORT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/fstek-report-smoke.XXXXXX")"
+REPORT_BATCH="smoke-$(date +%s)"
+if FSTEK_COLOR=never ./check_all.sh --class K3 --output-dir "$REPORT_DIR" --batch-id "$REPORT_BATCH" >/dev/null 2>&1; then
+    report_rc=0
+else
+    report_rc=$?
+fi
+REPORT_ARTIFACT_DIR="$REPORT_DIR/$REPORT_BATCH"
+report_log_count="$(find "$REPORT_ARTIFACT_DIR" -maxdepth 1 -type f -name '*.log' 2>/dev/null | wc -l | tr -d ' ')"
+report_json_count="$(find "$REPORT_ARTIFACT_DIR" -maxdepth 1 -type f -name '*.json' 2>/dev/null | wc -l | tr -d ' ')"
+if [ -d "$REPORT_ARTIFACT_DIR" ] && [ "$report_log_count" -ge 1 ] && [ "$report_json_count" -ge 1 ]; then
+    ok "check_all.sh --output-dir writes log and json"
+else
+    fail "check_all.sh --output-dir missing artifacts (rc=$report_rc log=$report_log_count json=$report_json_count)"
+fi
+if [ "$report_json_count" -ge 1 ]; then
+    sample_json="$(find "$REPORT_ARTIFACT_DIR" -maxdepth 1 -type f -name '*.json' | head -n 1)"
+    if grep -q '"schema"[[:space:]]*:[[:space:]]*"fstek-audit-summary/v1"' "$sample_json"; then
+        ok "report json schema fstek-audit-summary/v1"
+    else
+        fail "report json missing expected schema"
+    fi
+fi
+rm -rf "$REPORT_DIR"
+
+printf '\n== fleet runner ==\n'
+if grep -q 'exec "$SCRIPT_DIR/fstek_audit/run_fleet.sh"' fleet_check.sh; then
+    ok "fleet_check.sh delegates to run_fleet.sh"
+else
+    fail "fleet_check.sh does not delegate to run_fleet.sh"
+fi
+if ./fleet_check.sh --help 2>&1 | grep -q 'run_fleet.sh'; then
+    ok "fleet_check.sh --help"
+else
+    fail "fleet_check.sh --help"
+fi
+if ./fleet_check.sh 2>&1 | grep -q 'inventory'; then
+    ok "fleet_check.sh requires inventory"
+else
+    fail "fleet_check.sh missing inventory validation"
+fi
+
+printf '\n== fleet aggregate ==\n'
+if bash tests/aggregate.sh; then
+    ok "fleet aggregate csv"
+else
+    fail "fleet aggregate csv"
+fi
+
+printf '\n== fleet inventory ==\n'
+if bash tests/fleet_inventory.sh; then
+    ok "fleet inventory auth parsing"
+else
+    fail "fleet inventory auth parsing"
+fi
 
 if [ "$FAILURES" -eq 0 ]; then
     printf '\nAll smoke tests passed.\n'

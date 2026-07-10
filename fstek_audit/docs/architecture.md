@@ -33,4 +33,6 @@ code	section	file	function	classes	title	component
 
 Manifest `file` paths are relative to `fstek_audit/`, for example `checks/IAF/IAF_01.sh`.
 
+A `classes` value of `-` means the measure is implemented and runnable, but appendix 2 marks no `+` for K1/K2/K3. Such measures are included in full `check_all.sh` runs and `--measure`, but skipped by `--class` filters.
+
 `fstek_audit/run.sh` uses the manifest for `--list`, `--measure`, `--section`, and `--class` selection. Root `check_all.sh` delegates to the same runner so class filtering cannot drift into separate Bash `case` statements again.

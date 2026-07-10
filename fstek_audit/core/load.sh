@@ -21,3 +21,5 @@ FSTEK_REPO_DIR="$(cd "$FSTEK_AUDIT_DIR/.." && pwd)"
 . "$FSTEK_CORE_DIR/runner.sh"
 # shellcheck disable=SC1091
 . "$FSTEK_CORE_DIR/common.sh"
+# shellcheck disable=SC1091
+. "$FSTEK_CORE_DIR/report.sh"

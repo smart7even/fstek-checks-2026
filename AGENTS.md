@@ -18,6 +18,20 @@ Repo-local Codex skill:
 
 Use that skill for recurring FSTEK methodology work in this repository.
 
+## Git Branches
+
+Branch naming and when to fork a new branch for a new task are documented in
+`CONTRIBUTING.md` (section «Ветки и scope работы»). In short:
+
+- branch names must match the **current** task (`agent/fstek-<slug>`);
+- start a **new branch from `main`** for each distinct feature or roadmap stage
+  after the previous PR is merged or when scope no longer fits the branch name;
+- do not keep implementing unrelated work on a branch whose original task is
+  already done (for example fleet work on a `legacy-cleanup` branch).
+
+Agents should check branch scope before coding and create a fresh branch when the
+user's request is clearly a new task.
+
 ## Scope And Platforms
 
 - Keep all checks read-only. Never change system configuration, service state,

@@ -140,5 +140,4 @@ such as `tests/smoke.sh` should:
 - Run `bash -n` on every `.sh` file.
 - Run every manifest measure via `check_all.sh --measure <CODE> --class K3` in a safe mode, or at least verify it starts and exits without syntax/runtime errors on a generic Linux host.
 - Verify that every measure file defines `run_check`.
-- Verify that every implemented measure is either included in
-  `fstek_measure_classes` or explicitly marked as intentionally excluded.
+- Verify that every manifest measure has either class applicability or an intentionally empty `classes` field for optional measures.

@@ -101,12 +101,16 @@ fstek_manifest_class_contains() {
 
 fstek_measure_classes() {
     local classes
-    classes="$(fstek_manifest_field "$1" 5)" || return 0
+    classes="$(fstek_manifest_field "$1" 5 2>/dev/null)" || return 0
+    [ -n "$classes" ] || return 0
+    [ "$classes" = "-" ] && return 0
     printf '%s\n' "$classes" | tr ',' ' '
 }
 
-fstek_measure_intentionally_excluded() {
-    return 1
+fstek_measure_optional() {
+    local classes
+    classes="$(fstek_manifest_field "$1" 5 2>/dev/null)" || return 1
+    [ "$classes" = "-" ]
 }
 
 fstek_measure_enabled() {

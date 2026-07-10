@@ -1,14 +1,14 @@
 code	section	file	function	classes	title	component
 ИАФ.1	IAF	checks/IAF/IAF_01.sh	run_check	K1,K2,K3	Идентификация пользователей	linux
-ИАФ.2	IAF	checks/IAF/IAF_02.sh	run_check	K1,K2,K3	Идентификация устройств	linux
+ИАФ.2	IAF	checks/IAF/IAF_02.sh	run_check	-	Идентификация устройств	linux
 ИАФ.3	IAF	checks/IAF/IAF_03.sh	run_check	K1,K2,K3	Управление средствами аутентификации	linux
-ИАФ.4	IAF	checks/IAF/IAF_04.sh	run_check	K1,K2,K3	Идентификация и аутентификация устройств	linux
+ИАФ.4	IAF	checks/IAF/IAF_04.sh	run_check	-	Идентификация и аутентификация устройств	linux
 УПД.1	UPD	checks/UPD/UPD_01.sh	run_check	K1,K2,K3	Реализация модели управления доступом	linux
 УПД.2	UPD	checks/UPD/UPD_02.sh	run_check	K1,K2,K3	Разграничение и контроль прав доступа	linux
 УПД.3	UPD	checks/UPD/UPD_03.sh	run_check	K1,K2,K3	Управление учетными записями	linux
 УПД.4	UPD	checks/UPD/UPD_04.sh	run_check	K1,K2,K3	Ограничение неуспешных попыток доступа	linux
-УПД.5	UPD	checks/UPD/UPD_05.sh	run_check	K1,K2,K3	Предупреждение пользователя	linux
-УПД.6	UPD	checks/UPD/UPD_06.sh	run_check	K1,K2,K3	Оповещение о предыдущем входе	linux
+УПД.5	UPD	checks/UPD/UPD_05.sh	run_check	-	Предупреждение пользователя	linux
+УПД.6	UPD	checks/UPD/UPD_06.sh	run_check	-	Оповещение о предыдущем входе	linux
 УПД.7	UPD	checks/UPD/UPD_07.sh	run_check	K1,K2	Ограничение параллельных сеансов	linux
 УПД.8	UPD	checks/UPD/UPD_08.sh	run_check	K1,K2,K3	Блокирование сеанса при неактивности	linux
 УПД.9	UPD	checks/UPD/UPD_09.sh	run_check	K1,K2,K3	Контроль действий до идентификации и аутентификации	linux
@@ -52,7 +52,7 @@ code	section	file	function	classes	title	component
 ЗКУ.2	ZKU	checks/ZKU/ZKU_02.sh	run_check	K1,K2,K3	Обеспечение целостности ПО конечного устройства	endpoint
 ЗКУ.3	ZKU	checks/ZKU/ZKU_03.sh	run_check	K1,K2,K3	Антивирусная защита и обнаружение/предотвращение вторжений	endpoint
 ЗКУ.4	ZKU	checks/ZKU/ZKU_04.sh	run_check	K1,K2,K3	Мониторинг процессов и состояния устройства	endpoint
-ЗКУ.5	ZKU	checks/ZKU/ZKU_05.sh	run_check	K1,K2,K3	Контроль и фильтрация трафика на конечном устройстве	endpoint
+ЗКУ.5	ZKU	checks/ZKU/ZKU_05.sh	run_check	-	Контроль и фильтрация трафика на конечном устройстве	endpoint
 ЗКУ.6	ZKU	checks/ZKU/ZKU_06.sh	run_check	K1,K2,K3	Анализ и реагирование на события безопасности	endpoint
 ЗМУ.1	ZMU	checks/ZMU/ZMU_01.sh	run_check	K1,K2,K3	Идентификация и аутентификация пользователей мобильных устройств	mobile
 ЗМУ.2	ZMU	checks/ZMU/ZMU_02.sh	run_check	K1,K2,K3	Управление доступом пользователей к мобильным устройствам	mobile
@@ -61,7 +61,7 @@ code	section	file	function	classes	title	component
 ЗМУ.5	ZMU	checks/ZMU/ZMU_05.sh	run_check	K1,K2,K3	Антивирусная защита мобильных устройств	mobile
 ЗМУ.6	ZMU	checks/ZMU/ZMU_06.sh	run_check	K1,K2,K3	Контроль приложений мобильных устройств	mobile
 ЗМУ.7	ZMU	checks/ZMU/ZMU_07.sh	run_check	K1,K2,K3	Ограничение и контроль функциональности мобильных устройств	mobile
-ЗМУ.8	ZMU	checks/ZMU/ZMU_08.sh	run_check	K1,K2,K3	Определение и контроль геопозиции мобильных устройств	mobile
+ЗМУ.8	ZMU	checks/ZMU/ZMU_08.sh	run_check	-	Определение и контроль геопозиции мобильных устройств	mobile
 ЗМУ.9	ZMU	checks/ZMU/ZMU_09.sh	run_check	K1,K2,K3	Регистрация, анализ и реагирование на события безопасности мобильных устройств	mobile
 ЗИВ.1	ZIV	checks/ZIV/ZIV_01.sh	run_check	K1,K2,K3	Идентификация и аутентификация IoT	iot
 ЗИВ.2	ZIV	checks/ZIV/ZIV_02.sh	run_check	K1,K2,K3	Управление доступом IoT	iot
@@ -77,32 +77,22 @@ code	section	file	function	classes	title	component
 АВЗ.1	AVZ	checks/AVZ/AVZ_01.sh	run_check	K1,K2,K3	Антивирусная защита устройств	antivirus
 АВЗ.2	AVZ	checks/AVZ/AVZ_02.sh	run_check	K1,K2,K3	Антивирусная защита электронной почты	antivirus
 АВЗ.3	AVZ	checks/AVZ/AVZ_03.sh	run_check	K1,K2,K3	Антивирусная проверка сетевого трафика	antivirus
-АВЗ.4	AVZ	checks/AVZ/AVZ_04.sh	run_check	K1,K2,K3	Замкнутая среда предварительного анализа файлов	antivirus
+АВЗ.4	AVZ	checks/AVZ/AVZ_04.sh	run_check	-	Замкнутая среда предварительного анализа файлов	antivirus
 СОВ.1	SOV	checks/SOV/SOV_01.sh	run_check	K1,K2,K3	Обнаружение и предотвращение вторжений на периметре	ids
 СОВ.2	SOV	checks/SOV/SOV_02.sh	run_check	K1,K2,K3	Обнаружение и предотвращение вторжений в сегментах	ids
 МСЭ.1	MSE	checks/MSE/MSE_01.sh	run_check	K1,K2,K3	Сегментация сети	network
 МСЭ.2	MSE	checks/MSE/MSE_02.sh	run_check	K1,K2,K3	Организация демилитаризованной зоны	network
 МСЭ.3	MSE	checks/MSE/MSE_03.sh	run_check	K1,K2,K3	Контроль сетевого доступа и фильтрация трафика	network
-МСЭ.4	MSE	checks/MSE/MSE_04.sh	run_check	K1,K2,K3	Маскирование системы	network
-МСЭ.5	MSE	checks/MSE/MSE_05.sh	run_check	K1,K2,K3	Создание ложных систем	network
+МСЭ.4	MSE	checks/MSE/MSE_04.sh	run_check	-	Маскирование системы	network
+МСЭ.5	MSE	checks/MSE/MSE_05.sh	run_check	-	Создание ложных систем	network
 ЗОО.1	ZOO	checks/ZOO/ZOO_01.sh	run_check	K1,K2,K3	Защита от атак, направленных на отказ в обслуживании	availability
 ЗОО.2	ZOO	checks/ZOO/ZOO_02.sh	run_check	K1,K2,K3	Контроль и фильтрация входящего трафика	availability
 ЗОО.3	ZOO	checks/ZOO/ZOO_03.sh	run_check	K1,K2,K3	Мониторинг состояния сервисов и интерфейсов	availability
-ЗОО.4	ZOO	checks/ZOO/ZOO_04.sh	run_check	K1,K2,K3	Балансировка нагрузки	availability
+ЗОО.4	ZOO	checks/ZOO/ZOO_04.sh	run_check	-	Балансировка нагрузки	availability
 ЗОО.5	ZOO	checks/ZOO/ZOO_05.sh	run_check	K1,K2,K3	Ограничение нагрузки	availability
 ЗОО.6	ZOO	checks/ZOO/ZOO_06.sh	run_check	K1,K2	Поддержка резерва пропускной способности и ресурсов	availability
 ЗКС.1	ZKS	checks/ZKS/ZKS_01.sh	run_check	K1,K2,K3	Защита данных при передаче по каналам связи	network
 ЗКС.2	ZKS	checks/ZKS/ZKS_02.sh	run_check	K1,K2,K3	Контроль атрибутов безопасности при сетевом взаимодействии	network
 ЗКС.3	ZKS	checks/ZKS/ZKS_03.sh	run_check	K1,K2,K3	Контроль доступа к внешним ресурсам	network
-ЗКС.4	ZKS	checks/ZKS/ZKS_04.sh	run_check	K1,K2,K3	Контекстная проверка исходящего трафика	network
-# TODO: verify class applicability for ИАФ.2; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
-# TODO: verify class applicability for ИАФ.4; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
-# TODO: verify class applicability for УПД.5; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
-# TODO: verify class applicability for УПД.6; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
-# TODO: verify class applicability for ЗКУ.5; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
-# TODO: verify class applicability for ЗМУ.8; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
-# TODO: verify class applicability for АВЗ.4; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
-# TODO: verify class applicability for МСЭ.4; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
-# TODO: verify class applicability for МСЭ.5; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
-# TODO: verify class applicability for ЗОО.4; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
-# TODO: verify class applicability for ЗКС.4; previous Bash registry marked the implemented measure as intentionally excluded, now included to avoid accidental omission.
+ЗКС.4	ZKS	checks/ZKS/ZKS_04.sh	run_check	-	Контекстная проверка исходящего трафика	network
+# Measures with classes "-" are implemented locally but have no "+" in appendix 2 for K1/K2/K3. They run in full check_all.sh and via --measure, but are skipped by --class filters.

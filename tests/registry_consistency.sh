@@ -36,9 +36,13 @@ while IFS=$'\t' read -r code section file function classes title component; do
     [ -n "$section" ] || fail "$code has empty section"
     [ -n "$file" ] || fail "$code has empty file"
     [ -n "$function" ] || fail "$code has empty function"
-    [ -n "$classes" ] || fail "$code has empty classes"
     [ -n "$title" ] || fail "$code has empty title"
     [ -n "$component" ] || fail "$code has empty component"
+
+    case "$classes" in
+        -|*K1*|*K2*|*K3*) : ;;
+        *) fail "$code has invalid classes value: $classes" ;;
+    esac
 
     measure_path="fstek_audit/$file"
     if [ ! -r "$measure_path" ]; then
@@ -51,10 +55,6 @@ while IFS=$'\t' read -r code section file function classes title component; do
     case "$file" in
         checks/"$section"/*) : ;;
         *) fail "$code section/file mismatch: $section vs $file" ;;
-    esac
-    case "$classes" in
-        *K1*|*K2*|*K3*) : ;;
-        *) fail "$code has no runnable class in $classes" ;;
     esac
 done < "$manifest"
 

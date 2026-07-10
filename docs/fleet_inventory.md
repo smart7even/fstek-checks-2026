@@ -78,6 +78,26 @@ start to appear around **50–100+ concurrent SSH sessions**, depending on:
 
 Use `--parallel N` or `FSTEK_FLEET_PARALLEL=N` to cap concurrency if needed.
 
+## Batch ID
+
+`--batch-id` is **optional**. When omitted, the controller generates:
+
+```text
+<controller-hostname>-<YYYYMMDD-HHMMSS>
+```
+
+This uses the same timestamp stamp as per-host `.log`/`.json` artifact names
+(for example `marley.ru-central1.internal-20260710-125445.log` on a scanned host
+vs `macbook.local-20260710-125445` as the fleet batch directory on the controller).
+
+Override explicitly:
+
+```bash
+./fleet_check.sh --inventory my.conf --class K3 --batch-id prod-2026-07-10
+```
+
+Or set `FSTEK_BATCH_ID=prod-2026-07-10` in the inventory file.
+
 ## Retention
 
 Local batch directories under `fstek_audit/output/fleet/` are **not deleted**

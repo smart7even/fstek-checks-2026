@@ -141,7 +141,31 @@ if [ "$report_json_count" -ge 1 ]; then
         fail "report json missing expected schema"
     fi
 fi
-rm -rf "$REPORT_DIR"
+
+AUTO_REPORT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/fstek-report-auto.XXXXXX")"
+if FSTEK_COLOR=never ./check_all.sh --class K3 --output-dir "$AUTO_REPORT_DIR" >/dev/null 2>&1; then
+    auto_rc=0
+else
+    auto_rc=$?
+fi
+auto_batch_count="$(find "$AUTO_REPORT_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+auto_batch_dir="$(find "$AUTO_REPORT_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -n 1)"
+if [ "$auto_batch_count" -eq 1 ] && [ -n "$auto_batch_dir" ] && \
+    find "$auto_batch_dir" -maxdepth 1 -type f -name '*.log' 2>/dev/null | grep -q . && \
+    find "$auto_batch_dir" -maxdepth 1 -type f -name '*.json' 2>/dev/null | grep -q .; then
+    ok "check_all.sh --output-dir auto batch-id (rc=$auto_rc)"
+else
+    fail "check_all.sh --output-dir without --batch-id missing auto batch dir"
+fi
+# shellcheck disable=SC1091
+. "$ROOT_DIR/fstek_audit/core/load.sh"
+default_batch="$(fstek_report_default_batch_id)"
+if printf '%s' "$default_batch" | grep -Eq '^[a-z0-9._-]+-[0-9]{8}-[0-9]{6}$'; then
+    ok "fstek_report_default_batch_id format"
+else
+    fail "fstek_report_default_batch_id format ($default_batch)"
+fi
+rm -rf "$REPORT_DIR" "$AUTO_REPORT_DIR"
 
 printf '\n== fleet runner ==\n'
 if grep -q 'exec "$SCRIPT_DIR/fstek_audit/run_fleet.sh"' fleet_check.sh; then

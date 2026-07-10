@@ -71,6 +71,8 @@ Runs check_all.sh on each host from the inventory via SSH (sudo -n on the VM by
 default). Before each scan, rsyncs the local checks bundle from the controller
 to FSTEK_REMOTE_REPO (FSTEK_AUTO_DEPLOY=true by default). Collects log/JSON
 artifacts locally under output/fleet/<batch-id>/, and writes fleet-summary.csv.
+When --batch-id is omitted, it is auto-generated as <controller-hostname>-<YYYYMMDD-HHMMSS>
+(the same stamp pattern as per-host .log/.json artifacts).
 Host scans run in parallel; --parallel 0 launches all hosts at once (default).
 Use --no-deploy if the bundle is already managed on targets.
 After the batch finishes, writes fleet-measures.csv and fleet-measure-rollups.csv.
@@ -173,7 +175,7 @@ if fstek_fleet_bool "$FSTEK_AUTO_DEPLOY"; then
     }
 fi
 
-FLEET_BATCH_ID="${FLEET_BATCH_ID:-${FSTEK_BATCH_ID:-$(fstek_report_timestamp)}}"
+FLEET_BATCH_ID="${FLEET_BATCH_ID:-${FSTEK_BATCH_ID:-$(fstek_report_default_batch_id)}}"
 FLEET_OUTPUT_ROOT="${FLEET_OUTPUT_ROOT:-$SCRIPT_DIR/output/fleet}"
 FLEET_OUTPUT_DIR="$FLEET_OUTPUT_ROOT/$FLEET_BATCH_ID"
 ROWS_DIR="$FLEET_OUTPUT_DIR/.rows"

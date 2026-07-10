@@ -88,6 +88,9 @@ if $LIST_ONLY; then
 fi
 
 if [ -n "$FSTEK_OUTPUT_DIR_ARG" ]; then
+    if [ -z "$FSTEK_BATCH_ID_ARG" ]; then
+        FSTEK_BATCH_ID_ARG="$(fstek_report_default_batch_id)"
+    fi
     fstek_report_prepare_output "$FSTEK_OUTPUT_DIR_ARG" "$FSTEK_BATCH_ID_ARG" || exit 2
 fi
 

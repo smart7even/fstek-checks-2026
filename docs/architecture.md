@@ -29,7 +29,9 @@ The repository uses an audit-engine layout under `fstek_audit/`. Root entrypoint
 - `<dir>/<batch-id>/<hostname>-<timestamp>.log` — full console output
 - `<dir>/<batch-id>/<hostname>-<timestamp>.json` — machine-readable summary (`fstek-audit-summary/v1`)
 
-When `--batch-id` is omitted, artifacts are written directly under `<dir>/`.
+When `--batch-id` is omitted, it is auto-generated as `<hostname>-<YYYYMMDD-HHMMSS>`
+(the same stamp used in artifact file names). Override with `--batch-id` or `FSTEK_BATCH_ID`
+in inventory for fleet runs.
 
 ## Fleet Orchestration
 
@@ -41,6 +43,11 @@ When `--batch-id` is omitted, artifacts are written directly under `<dir>/`.
 4. Runs remote `sudo -n ./check_all.sh --class ... --output-dir ...` over SSH.
 5. Collects log/JSON artifacts into `fstek_audit/output/fleet/<batch-id>/<host>/`.
 6. Writes `fleet-summary.csv` with reachability and scan status per host.
+
+If `--batch-id` is omitted, the batch directory name is auto-generated on the
+controller as `<controller-hostname>-<YYYYMMDD-HHMMSS>` (same timestamp pattern
+as per-host `.log`/`.json` files). Optional override: `--batch-id` or
+`FSTEK_BATCH_ID` in inventory.
 
 Host scans run **in parallel** (all at once by default). See `docs/fleet_inventory.md`
 for inventory format, SSH auth (key or password), and parallelism limits.

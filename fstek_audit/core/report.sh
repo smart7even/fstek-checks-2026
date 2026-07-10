@@ -49,6 +49,13 @@ fstek_report_timestamp() {
     date +%Y%m%d-%H%M%S
 }
 
+fstek_report_default_batch_id() {
+    local stamp hostname
+    stamp="$(fstek_report_timestamp)"
+    hostname="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo unknown)"
+    fstek_report_file_basename "$hostname" "$stamp"
+}
+
 fstek_report_iso8601() {
     date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date +%Y-%m-%dT%H:%M:%S%z
 }

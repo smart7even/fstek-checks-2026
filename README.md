@@ -92,6 +92,16 @@ sudo ./check_all.sh --measure ЗКС.1 --with-enhancements
 Чтобы сохранить артефакты сканирования в каталог (для CI, архива или fleet-сбора):
 
 ```bash
+sudo ./check_all.sh --class K3 --output-dir ./fstek_audit/output/host
+# каталог batch: ./fstek_audit/output/host/<hostname>-<YYYYMMDD-HHMMSS>/
+```
+
+Явный `--batch-id` опционален — по умолчанию идентификатор совпадает с шаблоном
+имени log/json-файлов: `<hostname>-<YYYYMMDD-HHMMSS>`.
+
+С явным идентификатором:
+
+```bash
 sudo ./check_all.sh --class K3 \
   --output-dir ./fstek_audit/output/host \
   --batch-id scan-2026-07-10
@@ -107,6 +117,14 @@ sudo ./check_all.sh --class K3 \
 Fleet-режим запускает `check_all.sh` на удалённых VM с **контроллера** (Mac или Linux), автоматически доставляет bundle на цели, собирает артефакты и строит сводные CSV.
 
 Точка входа:
+
+```bash
+./fleet_check.sh --inventory fstek_audit/config/inventory.example.conf --class K3
+```
+
+`--batch-id` необязателен: если не указан, создаётся каталог
+`<controller-hostname>-<YYYYMMDD-HHMMSS>` (тот же шаблон timestamp, что у log/json
+на целевых хостах). Для фиксированного имени прогона:
 
 ```bash
 ./fleet_check.sh --inventory fstek_audit/config/inventory.example.conf --class K3 --batch-id prod-2026-07-10
@@ -170,7 +188,7 @@ export FSTEK_SSH_PASSWORD='...'
 | Флаг | Назначение |
 |---|---|
 | `--class K1\|K2\|K3` | Класс защищённости для всего парка |
-| `--batch-id <id>` | Идентификатор прогона (имя каталога артефактов) |
+| `--batch-id <id>` | Идентификатор прогона (опционально; по умолчанию `<hostname>-<YYYYMMDD-HHMMSS>`) |
 | `--output-dir <dir>` | Корень вывода (по умолчанию `fstek_audit/output/fleet`) |
 | `--parallel N` | Параллелизм; `0` = все хосты сразу (по умолчанию) |
 | `--no-deploy` | Не rsync-ить bundle — использовать уже разложенный на VM |

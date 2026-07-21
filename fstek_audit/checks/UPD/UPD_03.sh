@@ -18,15 +18,24 @@ run_check() {
     fi
     LOCKED_ACCOUNTS="${LOCKED_ACCOUNTS:-0}"
 
+    INTERACTIVE_USERS=()
+    while read -r _iu; do
+        [ -n "$_iu" ] && INTERACTIVE_USERS+=("$_iu")
+    done < <(fstek_interactive_users)
+    INTERACTIVE_COUNT="${#INTERACTIVE_USERS[@]}"
+
     # Поле inactive в /etc/shadow не является датой последнего входа, поэтому
     # фактическую неактивность проверяем по lastlog, когда он доступен.
     INACTIVE_USERS=()
     if command -v lastlog &>/dev/null; then
         while read -r user; do
             [ -n "$user" ] || continue
-            if awk -F: -v u="$user" '$1 == u && $7 !~ /(nologin|false)$/ {found=1} END {exit !found}' /etc/passwd 2>/dev/null; then
-                INACTIVE_USERS+=("$user")
-            fi
+            for iu in "${INTERACTIVE_USERS[@]}"; do
+                if [ "$iu" = "$user" ]; then
+                    INACTIVE_USERS+=("$user")
+                    break
+                fi
+            done
         done < <(lastlog -b 90 2>/dev/null | awk 'NR > 1 && $0 !~ /Never logged in|Никогда/ {print $1}')
     else
         check_skip "УПД.3.1" "Команда lastlog отсутствует, дату последнего входа учетных записей проверить нельзя"
@@ -45,27 +54,67 @@ run_check() {
         check_pass "УПД.3.1a" "В /etc/shadow не задан период неактивности после истечения пароля больше 90 дней"
     fi
 
-    # УПД.3.2 – Срок действия паролей
+    # УПД.3.2 – Срок действия паролей (интерактивные УЗ: root или UID>=UID_MIN)
     MAX_DAYS_CONFIGURED=0
-    for user in $(awk -F: '$3 >= 1000 {print $1}' /etc/passwd); do
-        MAX_DAYS=$(chage -l "$user" 2>/dev/null | grep "Maximum" | awk -F: '{print $2}' | tr -d ' ')
+    TOTAL_USERS="$INTERACTIVE_COUNT"
+    for user in "${INTERACTIVE_USERS[@]}"; do
+        MAX_DAYS=$(chage -l "$user" 2>/dev/null | grep -E "Maximum|Максимальное" | awk -F: '{print $2}' | tr -d ' ')
         if [[ "$MAX_DAYS" =~ ^[0-9]+$ ]] && [ "$MAX_DAYS" -le 90 ]; then
-            ((MAX_DAYS_CONFIGURED++))
+            MAX_DAYS_CONFIGURED=$((MAX_DAYS_CONFIGURED + 1))
         fi
     done
-    TOTAL_USERS=$(awk -F: '$3 >= 1000 {print $1}' /etc/passwd | wc -l)
-    if [ "$MAX_DAYS_CONFIGURED" -eq "$TOTAL_USERS" ] && [ "$TOTAL_USERS" -gt 0 ]; then
-        check_pass "УПД.3.2" "Срок действия паролей настроен для всех пользователей (<=90 дней)"
+    if [ "$TOTAL_USERS" -eq 0 ]; then
+        check_skip "УПД.3.2" "Нет локальных интерактивных УЗ для проверки срока действия паролей"
+    elif [ "$MAX_DAYS_CONFIGURED" -eq "$TOTAL_USERS" ]; then
+        check_pass "УПД.3.2" "Срок действия паролей настроен для всех интерактивных пользователей ($TOTAL_USERS, <=90 дней)"
     else
         check_fail "УПД.3.2" "Срок действия паролей не настроен для всех пользователей ($MAX_DAYS_CONFIGURED из $TOTAL_USERS)"
     fi
 
-    # УПД.3.3 – Учетные записи без пароля
-    NO_PASSWORD=$(awk -F: '($2 == "" || $2 == "!") && $3 >= 1000 {print $1}' /etc/shadow 2>/dev/null | wc -l)
-    if [ "$NO_PASSWORD" -eq 0 ]; then
-        check_pass "УПД.3.3" "Учетные записи без пароля отсутствуют"
+    # УПД.3.3 – Учетные записи без пароля (среди интерактивных)
+    if [ "$TOTAL_USERS" -eq 0 ]; then
+        check_skip "УПД.3.3" "Нет локальных интерактивных УЗ для проверки паролей"
+    elif [ ! -r /etc/shadow ]; then
+        check_skip "УПД.3.3" "Файл /etc/shadow недоступен для чтения"
     else
-        check_fail "УПД.3.3" "Обнаружено $NO_PASSWORD учетных записей без пароля"
+        NO_PASSWORD=0
+        NO_PASSWORD_LIST=()
+        for user in "${INTERACTIVE_USERS[@]}"; do
+            HASH=$(awk -F: -v u="$user" '$1 == u {print $2; exit}' /etc/shadow 2>/dev/null)
+            # Пустой hash — риск; ! / !! / * — заблокированные/без парольного логина, не считаем FAIL
+            if [ -z "$HASH" ]; then
+                # Нет строки в shadow или пустое поле пароля
+                if ! awk -F: -v u="$user" '$1 == u {found=1} END {exit !found}' /etc/shadow 2>/dev/null; then
+                    continue
+                fi
+                NO_PASSWORD=$((NO_PASSWORD + 1))
+                NO_PASSWORD_LIST+=("$user")
+            fi
+        done
+        if [ "$NO_PASSWORD" -eq 0 ]; then
+            check_pass "УПД.3.3" "Учетные записи без пароля отсутствуют среди интерактивных УЗ"
+        else
+            check_fail "УПД.3.3" "Обнаружено $NO_PASSWORD учетных записей без пароля: ${NO_PASSWORD_LIST[*]}"
+        fi
+    fi
+
+    # INFO: перечень интерактивных УЗ и sudo/wheel для ручного анализа
+    if [ "$INTERACTIVE_COUNT" -gt 0 ]; then
+        check_info "УПД.3.I1" "Интерактивные УЗ: ${INTERACTIVE_USERS[*]}"
+    else
+        check_info "УПД.3.I1" "Интерактивные УЗ не обнаружены"
+    fi
+    SUDO_MEMBERS=""
+    for grp in sudo wheel; do
+        if getent group "$grp" >/dev/null 2>&1; then
+            m=$(getent group "$grp" | cut -d: -f4)
+            [ -n "$m" ] && SUDO_MEMBERS="${SUDO_MEMBERS}${SUDO_MEMBERS:+; }${grp}: ${m}"
+        fi
+    done
+    if [ -n "$SUDO_MEMBERS" ]; then
+        check_info "УПД.3.I2" "Группы sudo/wheel: $SUDO_MEMBERS"
+    else
+        check_info "УПД.3.I2" "Группы sudo/wheel пусты или отсутствуют"
     fi
 
     # УПД.3.4 – Журнал изменений учетных записей (auditd)

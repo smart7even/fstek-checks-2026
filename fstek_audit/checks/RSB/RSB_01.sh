@@ -90,11 +90,8 @@ run_check() {
 
     if fstek_enhancement_enabled "РСБ.1" "2"; then
         # РСБ.1.6 (Усиление 2) – Централизованный мониторинг / SIEM
-        if grep -rqE "^\*\.\*.*(@@|@)" /etc/rsyslog.d/ /etc/rsyslog.conf 2>/dev/null; then
-            check_pass "РСБ.1.6" "Настроена отправка логов на удаленный SIEM/Syslog сервер"
-        else
-            check_fail "РСБ.1.6" "Отправка логов на централизованный сервер (SIEM) не настроена"
-        fi
+        # Uses profile FSTEK_EXPECT_SIEM_HOST/PORT when set.
+        check_siem_forwarding "РСБ.1.6"
     else
         skip_enhancement "РСБ.1.6"
     fi

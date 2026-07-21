@@ -12,12 +12,14 @@ run_check() {
     done
 
 
-    # УПД.8.1 – TMOUT в shell
+    # УПД.8.1 – TMOUT в shell (profile, profile.d, bash.bashrc; в т.ч. declare -r TMOUT=)
     TMOUT_CONFIGURED=false
     for profile in /etc/profile /etc/profile.d/*.sh /etc/bash.bashrc; do
-        if [ -f "$profile" ] && grep -qE "(readonly|export)?[[:space:]]*TMOUT=[0-9]+" "$profile"; then
-            TMOUT_VALUE=$(grep -E "TMOUT=[0-9]+" "$profile" | head -1 | grep -oE "[0-9]+")
-            if [ "$TMOUT_VALUE" -gt 0 ] && [ "$TMOUT_VALUE" -le 900 ]; then
+        [ -f "$profile" ] || continue
+        if grep -qE '^[[:space:]]*(declare[[:space:]]+(-[[:alnum:]]+[[:space:]]+)*|readonly[[:space:]]+|export[[:space:]]+)?TMOUT=[0-9]+' "$profile" || \
+           grep -qE '(^|[[:space:];])TMOUT=[0-9]+' "$profile"; then
+            TMOUT_VALUE=$(grep -oE 'TMOUT=[0-9]+' "$profile" | head -1 | cut -d= -f2)
+            if [[ "$TMOUT_VALUE" =~ ^[0-9]+$ ]] && [ "$TMOUT_VALUE" -gt 0 ] && [ "$TMOUT_VALUE" -le 900 ]; then
                 TMOUT_CONFIGURED=true
                 check_pass "УПД.8.1" "TMOUT настроен в $profile: $TMOUT_VALUE секунд"
                 break
@@ -92,9 +94,9 @@ run_check() {
     if fstek_enhancement_enabled "УПД.8" "1"; then
         AUTO_LOGOUT=false
 
-        # Проверяем TMOUT с export
-        for profile in /etc/profile /etc/profile.d/*.sh; do
-            if [ -f "$profile" ] && grep -qE "export TMOUT|readonly TMOUT" "$profile"; then
+        # Проверяем TMOUT с export/readonly/declare -r
+        for profile in /etc/profile /etc/profile.d/*.sh /etc/bash.bashrc; do
+            if [ -f "$profile" ] && grep -qE "export[[:space:]]+TMOUT|readonly[[:space:]]+TMOUT|declare[[:space:]]+(-[[:alnum:]]+[[:space:]]+)*TMOUT=" "$profile"; then
                 AUTO_LOGOUT=true
                 break
             fi

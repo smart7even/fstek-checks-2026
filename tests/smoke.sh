@@ -198,6 +198,13 @@ else
     fail "fleet inventory auth parsing"
 fi
 
+printf '\n== core helpers ==\n'
+if bash tests/helpers.sh; then
+    ok "core helpers"
+else
+    fail "core helpers"
+fi
+
 if [ "$FAILURES" -eq 0 ]; then
     printf '\nAll smoke tests passed.\n'
 else

@@ -1,13 +1,6 @@
 #!/bin/bash
 # core/sftp.sh - SFTP upload helpers for fleet batch artifacts.
 
-fstek_sftp_bool() {
-    case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
-        1|true|yes|on) return 0 ;;
-        *) return 1 ;;
-    esac
-}
-
 fstek_sftp_opts() {
     local port="$1" auth_mode="$2" key_file="$3" connect_timeout="${4:-10}"
 

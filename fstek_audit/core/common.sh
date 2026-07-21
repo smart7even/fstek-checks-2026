@@ -34,6 +34,77 @@ file_any() {
     return 1
 }
 
+# fstek_config_value FILE KEY
+# Reads KEY value / KEY = value from the start of a non-comment line
+# (login.defs, pwquality.conf, auditd.conf, swap_wiper.conf, …).
+fstek_config_value() {
+    local file="$1" key="$2"
+    [ -f "$file" ] || return 1
+    grep -E "^[[:space:]]*${key}[[:space:]=]" "$file" 2>/dev/null \
+        | grep -vE '^[[:space:]]*#' \
+        | head -n1 \
+        | sed -E "s/^[[:space:]]*${key}[[:space:]=]+//" \
+        | awk '{print $1}' \
+        | tr -d '",'
+}
+
+# fstek_pam_arg FILE KEY — first key=value token anywhere in FILE.
+fstek_pam_arg() {
+    local file="$1" key="$2"
+    [ -f "$file" ] || return 1
+    grep -oE "${key}=[^[:space:]]+" "$file" 2>/dev/null | head -n1 | cut -d= -f2-
+}
+
+# fstek_pam_option_max OPTION FILE… — max numeric OPTION=N across PAM module lines.
+fstek_pam_option_max() {
+    local option="$1"
+    shift
+    [ "$#" -gt 0 ] || return 1
+    grep -hE "pam_(pwhistory|unix|faillock|tally2)\.so" "$@" 2>/dev/null |
+        grep -oE "${option}=[0-9]+" |
+        awk -F= 'max < $2 {max = $2} END {if (max != "") print max}'
+}
+
+# fstek_uid_min — UID_MIN from login.defs, default 1000.
+fstek_uid_min() {
+    local v
+    v="$(fstek_config_value /etc/login.defs UID_MIN 2>/dev/null || true)"
+    if [[ "$v" =~ ^[0-9]+$ ]]; then
+        printf '%s\n' "$v"
+    else
+        printf '1000\n'
+    fi
+}
+
+# fstek_interactive_users — root or UID>=UID_MIN with a real login shell.
+fstek_interactive_users() {
+    local uid_min
+    uid_min="$(fstek_uid_min)"
+    awk -F: -v min="$uid_min" '
+        NF >= 7 && $1 !~ /^#/ && ($3 == 0 || $3 >= min) && ($7 !~ /(nologin|false)$/) {
+            print $1
+        }
+    ' /etc/passwd 2>/dev/null
+}
+
+# fstek_status_active OUTPUT — Cyrillic/Latin "active" markers (Astra lock tools).
+fstek_status_active() {
+    local output="$1"
+    # Prefer whole-word Latin match so "inactive" does not pass.
+    if printf '%s' "$output" | grep -qE 'АКТИВНО|активно|Активно|АКТИВЕН|активен'; then
+        return 0
+    fi
+    printf '%s' "$output" | grep -qiwE 'active'
+}
+
+# fstek_astra_lock_active CMD — run "CMD status" and test for active state.
+fstek_astra_lock_active() {
+    local cmd="$1" out
+    have_cmd "$cmd" || return 1
+    out="$("$cmd" status 2>&1)" || true
+    fstek_status_active "$out"
+}
+
 has_web_stack() {
     fstek_component_expected web || have_cmd nginx || have_cmd apache2 || have_cmd httpd || service_known nginx apache2 httpd || file_any /etc/nginx /etc/apache2 /etc/httpd
 }
@@ -185,13 +256,52 @@ check_rate_limit() {
 
 check_siem_forwarding() {
     local code="$1"
-    if grep_any "@@|omfwd|target=|action\\(type=\"omfwd\"|remote" /etc/rsyslog.conf /etc/rsyslog.d /etc/syslog-ng 2>/dev/null || service_active wazuh-agent ossec filebeat auditbeat fluent-bit vector; then
-        check_pass "$code" "Обнаружена передача событий в централизованный сбор/мониторинг"
-    elif fstek_component_expected siem; then
-        check_fail "$code" "Профиль требует SIEM/централизованную отправку, но локальная конфигурация forwarding/агент не обнаружены"
-    else
-        check_fail "$code" "Не обнаружена централизованная передача событий безопасности"
+    local host port host_ok=0 port_ok=1
+    local has_forward=0
+
+    fstek_load_profile
+    host="${FSTEK_EXPECT_SIEM_HOST:-}"
+    port="${FSTEK_EXPECT_SIEM_PORT:-}"
+
+    if grep_any "@@|omfwd|target=|action\\(type=\"omfwd\"|remote" /etc/rsyslog.conf /etc/rsyslog.d /etc/syslog-ng 2>/dev/null || \
+       service_active wazuh-agent ossec filebeat auditbeat fluent-bit vector; then
+        has_forward=1
     fi
+
+    if [ "$has_forward" -eq 0 ]; then
+        if fstek_component_expected siem; then
+            check_fail "$code" "Профиль требует SIEM/централизованную отправку, но локальная конфигурация forwarding/агент не обнаружены"
+        else
+            check_fail "$code" "Не обнаружена централизованная передача событий безопасности"
+        fi
+        return 0
+    fi
+
+    if [ -n "$host" ]; then
+        host_ok=0
+        if grep -RIqF -- "$host" /etc/rsyslog.conf /etc/rsyslog.d /etc/syslog-ng 2>/dev/null; then
+            host_ok=1
+        fi
+        if [ -n "$port" ]; then
+            port_ok=0
+            if grep -RIEq -- "port=\"?${port}\"?|port\\(${port}\\)|:${port}([[:space:]]|$)|@@?[^[:space:]]+:${port}([[:space:]]|$)" \
+                /etc/rsyslog.conf /etc/rsyslog.d /etc/syslog-ng 2>/dev/null; then
+                port_ok=1
+            fi
+        fi
+        if [ "$host_ok" -eq 1 ] && [ "$port_ok" -eq 1 ]; then
+            if [ -n "$port" ]; then
+                check_pass "$code" "SIEM forwarding обнаружен; профиль host=${host} port=${port} совпадает"
+            else
+                check_pass "$code" "SIEM forwarding обнаружен; профиль host=${host} совпадает"
+            fi
+        else
+            check_fail "$code" "SIEM forwarding есть, но не совпадает с профилем (ожидался host=${host}${port:+ port=${port}})"
+        fi
+        return 0
+    fi
+
+    check_pass "$code" "Обнаружена передача событий в централизованный сбор/мониторинг"
 }
 
 check_fail2ban_or_reaction() {

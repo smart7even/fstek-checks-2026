@@ -9,39 +9,16 @@ run_check() {
         esac
     done
 
-
-    get_conf_value() {
-        local file="$1" key="$2"
-        [ -f "$file" ] || return 1
-        awk -F= -v key="$key" '
-            $0 !~ /^[[:space:]]*#/ && $1 ~ "^[[:space:]]*" key "[[:space:]]*$" {
-                gsub(/[[:space:]]/, "", $2); print $2; exit
-            }
-        ' "$file"
-    }
-
-    pam_option_max() {
-        local option="$1"
-        shift
-        grep -hE "pam_(pwhistory|unix|faillock|tally2)\.so" "$@" 2>/dev/null |
-            grep -oE "$option=[0-9]+" |
-            awk -F= 'max < $2 {max = $2} END {if (max != "") print max}'
-    }
-
     pam_has_option() {
         local option="$1"
         shift
         grep -hE "pam_(faillock|tally2)\.so" "$@" 2>/dev/null | grep -qE "(^|[[:space:]])$option([[:space:]]|$)"
     }
 
-    active_local_users() {
-        awk -F: 'NF >= 7 && $1 !~ /^#/ && ($7 !~ /(nologin|false)$/) {print $1}' /etc/passwd 2>/dev/null
-    }
-
     # ИАФ.3.1 – Сложность пароля (minlen >= 12)
     PWQUALITY="/etc/security/pwquality.conf"
     if [ -f "$PWQUALITY" ]; then
-        MINLEN=$(get_conf_value "$PWQUALITY" "minlen")
+        MINLEN=$(fstek_config_value "$PWQUALITY" "minlen")
         if [ -n "$MINLEN" ] && [ "$MINLEN" -ge 12 ]; then
             check_pass "ИАФ.3.1" "Минимальная длина пароля настроена: $MINLEN (>= 12)"
         else
@@ -53,8 +30,7 @@ run_check() {
 
     # ИАФ.3.2 – Алфавит паролей (Алфавит >= 70 символов / minclass >= 4)
     if [ -f "$PWQUALITY" ]; then
-        MINCLASS=$(get_conf_value "$PWQUALITY" "minclass")
-        # minclass=4 означает требование букв верхнего/нижнего регистра, цифр и спецсимволов (алфавит > 70)
+        MINCLASS=$(fstek_config_value "$PWQUALITY" "minclass")
         if [ -n "$MINCLASS" ] && [ "$MINCLASS" -ge 4 ]; then
             check_pass "ИАФ.3.2" "Сложность пароля (алфавит) настроена: minclass=$MINCLASS"
         else
@@ -66,7 +42,7 @@ run_check() {
     PWHISTORY_REMEMBER=0
     for pfile in /etc/pam.d/system-auth /etc/pam.d/password-auth /etc/pam.d/common-password; do
         if [ -f "$pfile" ]; then
-            VALUE=$(pam_option_max "remember" "$pfile")
+            VALUE=$(fstek_pam_option_max "remember" "$pfile")
             if [[ "$VALUE" =~ ^[0-9]+$ ]] && [ "$VALUE" -gt "$PWHISTORY_REMEMBER" ]; then
                 PWHISTORY_REMEMBER="$VALUE"
             fi
@@ -81,7 +57,7 @@ run_check() {
     # ИАФ.3.4 – Смена пароля (PASS_MAX_DAYS <= 90) для всех локальных пользователей, включая привилегированных
     LOGIN_DEFS="/etc/login.defs"
     if [ -f "$LOGIN_DEFS" ]; then
-        MAX_DAYS=$(awk '$1 == "PASS_MAX_DAYS" {print $2; exit}' "$LOGIN_DEFS")
+        MAX_DAYS=$(fstek_config_value "$LOGIN_DEFS" "PASS_MAX_DAYS")
         if [ -n "$MAX_DAYS" ] && [ "$MAX_DAYS" -le 90 ] && [ "$MAX_DAYS" -gt 0 ]; then
             check_pass "ИАФ.3.4" "Срок действия пароля: $MAX_DAYS дней (<= 90)"
         else
@@ -92,16 +68,20 @@ run_check() {
     fi
 
     USERS_WITH_BAD_MAX_DAYS=()
+    INTERACTIVE_COUNT=0
     while read -r user; do
         [ -n "$user" ] || continue
+        INTERACTIVE_COUNT=$((INTERACTIVE_COUNT + 1))
         USER_MAX=$(chage -l "$user" 2>/dev/null | awk -F: '/Maximum number of days|Максимальное/ {gsub(/[[:space:]]/, "", $2); print $2; exit}')
         if ! [[ "$USER_MAX" =~ ^[0-9]+$ ]] || [ "$USER_MAX" -gt 90 ] || [ "$USER_MAX" -le 0 ]; then
             USERS_WITH_BAD_MAX_DAYS+=("$user:${USER_MAX:-unset}")
         fi
-    done < <(active_local_users)
+    done < <(fstek_interactive_users)
 
-    if [ "${#USERS_WITH_BAD_MAX_DAYS[@]}" -eq 0 ]; then
-        check_pass "ИАФ.3.4a" "Срок действия пароля <=90 дней задан для активных локальных пользователей"
+    if [ "$INTERACTIVE_COUNT" -eq 0 ]; then
+        check_skip "ИАФ.3.4a" "Нет локальных интерактивных УЗ (UID 0 или >= UID_MIN) для проверки срока пароля"
+    elif [ "${#USERS_WITH_BAD_MAX_DAYS[@]}" -eq 0 ]; then
+        check_pass "ИАФ.3.4a" "Срок действия пароля <=90 дней задан для активных локальных пользователей ($INTERACTIVE_COUNT)"
     else
         check_fail "ИАФ.3.4a" "Есть активные пользователи без срока <=90 дней: ${USERS_WITH_BAD_MAX_DAYS[*]}"
     fi
@@ -113,18 +93,18 @@ run_check() {
     LOCK_PRIVILEGED=false
 
     if [ -f "$FAILLOCK_CONF" ]; then
-        DENY=$(get_conf_value "$FAILLOCK_CONF" "deny")
-        UNLOCK=$(get_conf_value "$FAILLOCK_CONF" "unlock_time")
+        DENY=$(fstek_config_value "$FAILLOCK_CONF" "deny")
+        UNLOCK=$(fstek_config_value "$FAILLOCK_CONF" "unlock_time")
         EVEN_DENY_ROOT=$(grep -Eq "^[[:space:]]*even_deny_root([[:space:]]|$)" "$FAILLOCK_CONF" && echo yes || echo no)
-        ADMIN_GROUP=$(get_conf_value "$FAILLOCK_CONF" "admin_group")
+        ADMIN_GROUP=$(fstek_config_value "$FAILLOCK_CONF" "admin_group")
         if [[ "$DENY" =~ ^[0-9]+$ ]] && [ "$DENY" -le 5 ] && [[ "$UNLOCK" =~ ^[0-9]+$ ]] && [ "$UNLOCK" -ge 900 ]; then LOCK_CONFIGURED=true; fi
         if [ "$EVEN_DENY_ROOT" = "yes" ] || [ -n "$ADMIN_GROUP" ]; then LOCK_PRIVILEGED=true; fi
     fi
 
     if ! $LOCK_CONFIGURED; then
         for pfile in $PAM_FILES; do
-            DENY=$(pam_option_max "deny" "$pfile")
-            UNLOCK=$(pam_option_max "unlock_time" "$pfile")
+            DENY=$(fstek_pam_option_max "deny" "$pfile")
+            UNLOCK=$(fstek_pam_option_max "unlock_time" "$pfile")
             if [[ "$DENY" =~ ^[0-9]+$ ]] && [ "$DENY" -le 5 ] && { [ -z "$UNLOCK" ] || [ "$UNLOCK" -ge 900 ]; }; then
                 LOCK_CONFIGURED=true; break
             fi

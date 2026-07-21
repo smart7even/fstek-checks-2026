@@ -1,18 +1,6 @@
 #!/bin/bash
 # core/aggregate.sh - fleet batch aggregation from collected scan logs.
 
-fstek_aggregate_measure_from_param() {
-    local param="$1"
-    case "$param" in
-        *.*.*)
-            printf '%s' "${param%.*}"
-            ;;
-        *)
-            printf '%s' "$param"
-            ;;
-    esac
-}
-
 fstek_aggregate_host_meta() {
     local host_dir="$1"
     local json_file=""

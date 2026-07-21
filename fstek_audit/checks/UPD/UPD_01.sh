@@ -48,7 +48,19 @@ detect_os
     if [[ "$OS_TYPE" == "astra17" || "$OS_TYPE" == "astra18" ]]; then
         if systemctl is-active --quiet parsecd 2>/dev/null; then
             MAC_USERS=$(pdpl-user 2>/dev/null | wc -l)
-            check_pass "УПД.1.3" "Мандатный доступ PARSEC активен, настроено $MAC_USERS пользователей"
+            PDAC_EVIDENCE=""
+            if have_cmd pdac-adm; then
+                PDAC_OUT=$(pdac-adm state 2>&1 || true)
+                if fstek_status_active "$PDAC_OUT"; then
+                    PDAC_EVIDENCE="; pdac-adm state: активно"
+                else
+                    PDAC_EVIDENCE="; pdac-adm state: $(printf '%s' "$PDAC_OUT" | head -n1 | tr -d '\r')"
+                fi
+            fi
+            check_pass "УПД.1.3" "Мандатный доступ PARSEC активен, настроено $MAC_USERS пользователей${PDAC_EVIDENCE}"
+            if have_cmd pdac-adm && ! fstek_status_active "${PDAC_OUT:-}"; then
+                check_info "УПД.1.3a" "parsecd активен, но pdac-adm state не сообщает АКТИВНО: $(printf '%s' "$PDAC_OUT" | head -n1 | tr -d '\r')"
+            fi
         else
             check_fail "УПД.1.3" "Служба PARSEC не активна (мандатный доступ не реализован)"
         fi

@@ -37,6 +37,24 @@ run_check() {
     # На уровне ядра Linux/KVM это обеспечивается стандартными механизмами изоляции и аллокации страниц.
     check_pass "ЗСВ.7.2" "Изоляция областей памяти ВМ обеспечивается ядром и гипервизором (KVM)"
 
+    # Astra host residual-wipe evidence when virt stack is present
+    detect_os
+    if [[ "$OS_TYPE" == "astra17" || "$OS_TYPE" == "astra18" ]]; then
+        SWAP_WIPER="/etc/parsec/swap_wiper.conf"
+        if [ -f "$SWAP_WIPER" ] && [ "$(fstek_config_value "$SWAP_WIPER" "ENABLED")" = "Y" ]; then
+            check_pass_medium "ЗСВ.7.2a" "Astra swap_wiper ENABLED=Y ($SWAP_WIPER)"
+        elif [ -f "$SWAP_WIPER" ]; then
+            check_info "ЗСВ.7.2a" "swap_wiper.conf найден, ENABLED=$(fstek_config_value "$SWAP_WIPER" "ENABLED")"
+        else
+            check_info "ЗСВ.7.2a" "Файл $SWAP_WIPER отсутствует"
+        fi
+        if grep -qE 'secdelrnd' /etc/fstab 2>/dev/null; then
+            check_pass_medium "ЗСВ.7.2b" "В /etc/fstab найдена опция secdelrnd"
+        else
+            check_info "ЗСВ.7.2b" "Опция secdelrnd в /etc/fstab не найдена"
+        fi
+    fi
+
     # --- ТРЕБОВАНИЯ К УСИЛЕНИЮ ---
     if fstek_enhancement_enabled "ЗСВ.7" "1"; then
         # ЗСВ.7.3 (Усиление 1) – Secure erase для удаления ВМ

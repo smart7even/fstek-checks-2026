@@ -17,8 +17,8 @@ run_check() {
     FAILLOCK_CONFIGURED=false
 
     if [ -f /etc/security/faillock.conf ]; then
-        DENY=$(awk -F= '$1 ~ /^[[:space:]]*deny[[:space:]]*$/ {gsub(/[[:space:]]/, "", $2); print $2; exit}' /etc/security/faillock.conf)
-        UNLOCK=$(awk -F= '$1 ~ /^[[:space:]]*unlock_time[[:space:]]*$/ {gsub(/[[:space:]]/, "", $2); print $2; exit}' /etc/security/faillock.conf)
+        DENY=$(fstek_config_value /etc/security/faillock.conf "deny")
+        UNLOCK=$(fstek_config_value /etc/security/faillock.conf "unlock_time")
 
         if [[ "$DENY" =~ ^[0-9]+$ ]] && [ "$DENY" -le 5 ] && [[ "$UNLOCK" =~ ^[0-9]+$ ]] && [ "$UNLOCK" -ge 900 ]; then
             FAILLOCK_CONFIGURED=true
@@ -28,7 +28,8 @@ run_check() {
     # Проверяем также в PAM файлах
     if ! $FAILLOCK_CONFIGURED; then
         for pfile in /etc/pam.d/system-auth /etc/pam.d/common-auth /etc/pam.d/password-auth; do
-            if [ -f "$pfile" ] && grep -qE "pam_faillock\.so.*deny=[1-5]([^0-9]|$)" "$pfile"; then
+            DENY=$(fstek_pam_option_max "deny" "$pfile")
+            if [[ "$DENY" =~ ^[0-9]+$ ]] && [ "$DENY" -ge 1 ] && [ "$DENY" -le 5 ]; then
                 FAILLOCK_CONFIGURED=true
                 break
             fi

@@ -16,11 +16,11 @@ The repository uses an audit-engine layout under `fstek_audit/`. Root entrypoint
 - `fstek_audit/core/logger.sh` and `fstek_audit/core/csv_engine.sh` are small foundations for reporting output.
 - `fstek_audit/core/report.sh` writes per-host log and JSON summary artifacts.
 - `fstek_audit/core/fleet.sh` implements ping/SSH availability checks and inventory parsing for fleet runs.
-- `fstek_audit/adapters/` contains OS adapter placeholders. Adapter-specific evidence collection has not been migrated yet.
 - `fstek_audit/checks/manifest.tsv` is the source of truth for implemented measures. It maps each measure code to its section, measure file, entry function, supported classes, title, and component.
 - `fstek_audit/checks/<GROUP>/` directories contain measure-specific logic. Each measure file defines `run_check`.
-- `fstek_audit/config/` contains example profile/scope and fleet inventory files.
-- `fstek_audit/output/` is reserved for generated reports and kept empty in git.
+- `fstek_audit/config/` contains example profile and fleet inventory files.
+- `fstek_audit/output/` holds generated reports and is gitignored (directory created at runtime).
+- Root `tests/` is the only test tree (syntax, smoke, registry, aggregate, helpers).
 
 ## Single-Host Reports
 

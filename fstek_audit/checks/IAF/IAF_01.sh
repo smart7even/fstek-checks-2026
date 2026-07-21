@@ -27,15 +27,18 @@ detect_os
         check_fail "ИАФ.1.1" "Файл /etc/passwd отсутствует или пуст"
     fi
 
-    # ИАФ.1.2 – PAM
+    # ИАФ.1.2 – PAM (Astra/Debian common-*, RHEL/ALT system-auth/password-auth)
     PAM_FOUND=false
-    for pfile in /etc/pam.d/common-auth /etc/pam.d/system-auth /etc/pam.d/login /etc/pam.d/parsecd; do
+    for pfile in /etc/pam.d/common-auth /etc/pam.d/system-auth /etc/pam.d/password-auth /etc/pam.d/login /etc/pam.d/parsecd; do
         if [ -f "$pfile" ]; then
             if grep -qE "pam_unix\.so|pam_sss\.so|pam_parsec\.so" "$pfile"; then
                 PAM_FOUND=true; break
             fi
         fi
     done
+    if ! $PAM_FOUND && grep_any "pam_unix\\.so|pam_sss\\.so|pam_parsec\\.so" /etc/pam.d 2>/dev/null; then
+        PAM_FOUND=true
+    fi
     if $PAM_FOUND; then
         check_pass "ИАФ.1.2" "PAM настроен (обнаружены модули pam_unix/pam_sss/pam_parsec)"
     else

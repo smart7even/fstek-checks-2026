@@ -17,16 +17,15 @@ Bash-комплект для практической автоматизиров
 ## Audit-engine layout
 
 ```text
-check_all.sh
+check_all.sh / fleet_check.sh / fleet_lab.sh
+docs/          # methodology, architecture, fleet, statuses, lab
+tests/         # syntax, smoke, registry, aggregate, helpers
 fstek_audit/
-├── run.sh
-├── core/
-├── adapters/
-├── checks/
-├── config/
-├── output/
-├── tests/
-└── docs/
+  run.sh, run_fleet.sh, run_measure.sh
+  core/        # shared helpers, profile, registry, fleet, report
+  checks/      # <GROUP>/<CODE>.sh + manifest.tsv
+  config/      # profile and inventory examples
+  output/      # generated reports (gitignored)
 ```
 
 Общие helper-функции живут в `fstek_audit/core/`. Реализации мер — в
@@ -270,7 +269,7 @@ sudo chmod 440 /etc/sudoers.d/fstek-lab
 - `./fstek_profile.conf`;
 - `/etc/fstek-checks/profile.conf`.
 
-Поддерживаемые ключи:
+Поддерживаемые ключи (см. также `fstek_audit/config/fstek_profile.example.conf`):
 
 ```bash
 FSTEK_EXPECT_WEB=true
@@ -281,10 +280,15 @@ FSTEK_EXPECT_MAIL=true
 FSTEK_EXPECT_WIRELESS=true
 FSTEK_EXPECT_SIEM=true
 FSTEK_EXPECT_AV=true
-FSTEK_EXPECT_AV_PRODUCT=clamav   # clamav, kaspersky/kesl, drweb
+FSTEK_EXPECT_AV_PRODUCT=kaspersky   # clamav | kaspersky | kesl | drweb
+# Optional SIEM collector match (used by check_siem_forwarding / РСБ.1.6):
+# FSTEK_EXPECT_SIEM_HOST=siem.example.local
+# FSTEK_EXPECT_SIEM_PORT=1468
 ```
 
 Если профиль требует компонент, а локальные признаки отсутствуют, проверка возвращает `FAIL`.
+
+Для АВЗ.1 на Astra/РЕД ОС с Kaspersky (KESL) или Dr.Web задайте `FSTEK_EXPECT_AV_PRODUCT=kaspersky` или `drweb`, если автодетект по имени службы неоднозначен. Без ключа скрипт ищет типичные службы (`kesl`, `drwebd`, `clamav` и др.).
 
 ## Состав
 

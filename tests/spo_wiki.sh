@@ -98,6 +98,75 @@ done < <(find "$OUT" -maxdepth 1 -name '[0-9][0-9][0-9]. *.md' | while read -r p
     fi
 done)
 
+model="$(find "$OUT" -maxdepth 1 -name '003. *.md' -print)"
+if [ -z "$model" ]; then
+    echo "MISSING 003"
+    fail=1
+else
+    if grep -Fq 'Pasted image' "$model"; then
+        echo "BROKEN_IMAGE 003"
+        fail=1
+    fi
+    for needle in 'example.ru/admin' 'example.ru/public' 'Внутренние непривилегированные' 'Внутренние привилегированные' 'Внешние пользователи' 'ЕСИА' 'Анонимные'; do
+        if ! grep -Fq "$needle" "$model"; then
+            echo "MODEL_INCOMPLETE 003 missing $needle"
+            fail=1
+        fi
+    done
+fi
+
+pdn_expect() {
+    local num="$1"
+    local file
+    file="$(find "$OUT" -maxdepth 1 -name "${num}. *.md" -print)"
+    if [ -z "$file" ]; then
+        echo "MISSING $num"
+        fail=1
+        return
+    fi
+    if ! grep -Fq '| УЗ4 | УЗ3 | УЗ2 | УЗ1 |' "$file"; then
+        echo "PDN_NO_UZ_AXIS $num"
+        fail=1
+    fi
+    if grep -E '^\| ПДН\.[0-9] \| \+ \| \+ \| \+ \|$' "$file" >/dev/null; then
+        echo "PDN_MAPPED_TO_K_CLASSES $num"
+        fail=1
+    fi
+}
+
+pdn_expect 038
+pdn_expect 039
+pdn_expect 040
+pdn_expect 041
+pdn_expect 042
+pdn_expect 043
+
+if ! grep -Fq '| ПДН.1 |  |  |  |  |  | + | + |' "$OUT"/038*.md; then
+    echo "PDN1_WRONG_UZ"
+    fail=1
+fi
+if ! grep -Fq '| ПДН.5 |  |  |  | + | + | + | + |' "$OUT"/042*.md; then
+    echo "PDN5_WRONG_UZ"
+    fail=1
+fi
+
+zvt1="$(find "$OUT" -maxdepth 1 -name '026. *.md' -print)"
+if ! grep -Eqi 'Cache-Control|кэш' "$zvt1"; then
+    echo "ZVT1_NO_CACHE_TRIAL"
+    fail=1
+fi
+
+zoo1="$(find "$OUT" -maxdepth 1 -name '035. *.md' -print)"
+if ! grep -Fq 'ЗКС' "$zoo1" || ! grep -Eqi 'ДМЗ|очистк' "$zoo1"; then
+    echo "ZOO1_NOT_DOS"
+    fail=1
+fi
+
+if ! grep -Fq 'таблица 2' "$OUT/README.md"; then
+    echo "README_NO_SPO_SOURCE"
+    fail=1
+fi
+
 if [ ! -f "$OUT/README.md" ]; then
     echo "MISSING README"
     fail=1
